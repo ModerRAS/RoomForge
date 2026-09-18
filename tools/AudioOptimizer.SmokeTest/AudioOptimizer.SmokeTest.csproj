@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AudioOptimizer.SmokeTest</RootNamespace>
+    <AssemblyName>AudioOptimizer.SmokeTest</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AudioOptimizer.Audio\AudioOptimizer.Audio.csproj" />
+    <ProjectReference Include="..\..\src\AudioOptimizer.Core\AudioOptimizer.Core.csproj" />
+    <ProjectReference Include="..\..\src\AudioOptimizer.Dsp\AudioOptimizer.Dsp.csproj" />
+    <ProjectReference Include="..\..\src\AudioOptimizer.IO\AudioOptimizer.IO.csproj" />
+    <ProjectReference Include="..\..\src\AudioOptimizer.Measurement\AudioOptimizer.Measurement.csproj" />
+  </ItemGroup>
+
+</Project>

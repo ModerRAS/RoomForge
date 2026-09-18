@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Pure plot math, live on CI and on any OS: no System.Windows, no Windows-only API. The project
+         reference list is deliberately empty here — the layering proof test asserts that. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AudioOptimizer.Visualization</RootNamespace>
+  </PropertyGroup>
+
+</Project>

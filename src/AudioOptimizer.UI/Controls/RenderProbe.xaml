@@ -1,0 +1,18 @@
+<UserControl x:Class="AudioOptimizer.UI.Controls.RenderProbe"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Width="320" Height="200" Background="White">
+    <!-- The evidence surface for M0: a frame and a series drawn from Visualization geometry, plus the two text
+         states the acceptance rules probe (a caption, and a label that must be ABSENT when not interpolating). -->
+    <Grid Width="320" Height="200" Background="White">
+        <Canvas x:Name="Surface" Width="320" Height="200" Background="White" />
+        <TextBlock x:Name="InterpolatedLabel"
+                   HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,4,6,0"
+                   FontSize="11" Foreground="#FFB00020" Text="Interpolated visualization"
+                   Visibility="Collapsed" />
+        <TextBlock x:Name="Caption"
+                   HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="8,0,0,4"
+                   FontSize="11" Foreground="#FF202020"
+                   Text="RoomForge render probe — synthetic series" />
+    </Grid>
+</UserControl>

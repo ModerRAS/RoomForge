@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- WPF lives here and only here. PresentationCore/Framework/WindowsBase come from the Windows Desktop
+         SDK via UseWPF — no NuGet package is added, and the pure Visualization project stays WPF-free. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Run it with: dotnet run -p src/AudioOptimizer.UI -c Release -->
+    <OutputType>WinExe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AudioOptimizer.UI</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AudioOptimizer.Visualization\AudioOptimizer.Visualization.csproj" />
+    <ProjectReference Include="..\AudioOptimizer.IO\AudioOptimizer.IO.csproj" />
+    <!-- The measurement flow is the one place the UI may reach the audio stack; the project-LOAD path must not,
+         and a test asserts that by scanning ProjectLoadViewModel rather than this file list. -->
+    <ProjectReference Include="..\AudioOptimizer.Audio\AudioOptimizer.Audio.csproj" />
+    <ProjectReference Include="..\AudioOptimizer.Measurement\AudioOptimizer.Measurement.csproj" />
+    <ProjectReference Include="..\AudioOptimizer.Optimization\AudioOptimizer.Optimization.csproj" />
+  </ItemGroup>
+
+</Project>

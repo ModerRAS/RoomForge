@@ -324,9 +324,13 @@ node_modules/
 # Visual Studio 6 auto-generated workspace file (contains which files were open etc.)
 *.vbw
 
-# Visual Studio 6 workspace and project file (working project files containing files to include in project)
+# pi agent state (session and workflow records): never committed
+.pi/
+
+# Visual Studio 6 workspace file (working project files containing files to include in project)
 *.dsw
-*.dsp
+# (*.dsp is deliberately NOT ignored: a slash-less pattern matches directories too, and it was swallowing
+# src/AudioOptimizer.Dsp — the whole DSP library would have been omitted from a commit while looking clean.)
 
 # Visual Studio 6 technical files
 *.ncb
@@ -427,3 +431,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Measurement captures (belt-and-braces; the harness defaults to the temp dir, not the tree)
+smoketest-*.wav

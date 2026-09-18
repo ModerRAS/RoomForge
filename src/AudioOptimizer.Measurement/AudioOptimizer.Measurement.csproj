@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Hardware bucket: this project drives IAudioBackend, so it is Windows-only by construction. The pure
+         logic it depends on (grid, outcomes, quality checks) stays in AudioOptimizer.Core / .Dsp on net10.0,
+         which is where the CA1416-free target belongs. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AudioOptimizer.Measurement</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AudioOptimizer.Audio\AudioOptimizer.Audio.csproj" />
+    <ProjectReference Include="..\AudioOptimizer.Core\AudioOptimizer.Core.csproj" />
+    <ProjectReference Include="..\AudioOptimizer.Dsp\AudioOptimizer.Dsp.csproj" />
+    <ProjectReference Include="..\AudioOptimizer.IO\AudioOptimizer.IO.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,7 @@
+<Window x:Class="AudioOptimizer.UI.Windows.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:AudioOptimizer.UI.Controls"
+        Title="RoomForge" Width="740" Height="560" Background="White">
+    <controls:ShellView />
+</Window>

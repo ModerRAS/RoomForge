@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- The render-evidence tests need RenderTargetBitmap, so this project takes the WPF stack (from the
+         Windows Desktop SDK, no package). The UI logic itself lives in AudioOptimizer.UI, and the plot math it
+         consumes lives in the WPF-free AudioOptimizer.Visualization. -->
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <!-- The WPF implicit-using set replaces the default one and drops System.IO; the IO-flavoured tests below
+         were written against the default set, so it is restored explicitly here. -->
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AudioOptimizer.Core\AudioOptimizer.Core.csproj" />
+    <ProjectReference Include="..\..\src\AudioOptimizer.Dsp\AudioOptimizer.Dsp.csproj" />
+    <ProjectReference Include="..\..\src\AudioOptimizer.IO\AudioOptimizer.IO.csproj" />
+    <ProjectReference Include="..\..\src\AudioOptimizer.Audio\AudioOptimizer.Audio.csproj" />
+    <ProjectReference Include="..\..\src\AudioOptimizer.Measurement\AudioOptimizer.Measurement.csproj" />
+    <ProjectReference Include="..\..\src\AudioOptimizer.Optimization\AudioOptimizer.Optimization.csproj" />
+    <ProjectReference Include="..\..\src\AudioOptimizer.Visualization\AudioOptimizer.Visualization.csproj" />
+    <ProjectReference Include="..\..\src\AudioOptimizer.UI\AudioOptimizer.UI.csproj" />
+  </ItemGroup>
+
+</Project>

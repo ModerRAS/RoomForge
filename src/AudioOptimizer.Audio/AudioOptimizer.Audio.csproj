@@ -1,0 +1,20 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Single Windows target, deliberately. The only consumer of an NAudio-free net10.0 asset would be the
+         test project, and that project runs fine on net10.0-windows, so a second target was scaffolding.
+         Facts that make the whole assembly Windows-only: every NAudio WASAPI/MMDevice member is annotated
+         windows-only (plain net10.0 → CA1416), and NAudio.Asio 3.1.0 ships only as net9.0-windows7.0
+         (verified: restores on net10.0-windows, NU1202 on net10.0), so ASIO needs this same target later.
+         The instruction "no CA1416/CS0618 suppression" is met by this TFM choice, not by NoWarn. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>AudioOptimizer.Audio</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio.Wasapi" Version="3.1.0" />
+  </ItemGroup>
+
+</Project>
