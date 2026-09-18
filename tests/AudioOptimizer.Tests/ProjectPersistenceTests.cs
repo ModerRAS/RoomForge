@@ -7,6 +7,7 @@ using AudioOptimizer.Core;
 using AudioOptimizer.Dsp;
 using AudioOptimizer.IO;
 using AudioOptimizer.Measurement;
+using AudioOptimizer.Visualization;
 using Xunit.Abstractions;
 
 /// <summary>
@@ -75,7 +76,7 @@ public sealed class ProjectPersistenceTests : IDisposable
 
         // Metadata, bit-exact: strings and numbers are stored as themselves, so equality is exact, not within a
         // tolerance. 3 modes × 27 points = 81 entries.
-        Assert.Equal(SessionManifest.CurrentSchemaVersion, manifest.SchemaVersion);   // 2
+        Assert.Equal(SessionManifest.CurrentSchemaVersion, manifest.SchemaVersion);   // 3
         Assert.Equal(session.ProjectId, manifest.ProjectId);
         Assert.Equal(session.CreatedUtc, manifest.CreatedUtc);
         Assert.Equal(81, manifest.Slots.Count);
@@ -248,8 +249,9 @@ public sealed class ProjectPersistenceTests : IDisposable
         ProjectLoadResult loaded = SessionStore.Load(directory);
         Assert.Equal(ProjectLoadProblem.SchemaVersionUnsupported, loaded.Problem);
         Assert.Null(loaded.Manifest);                                        // nothing half-read is handed back
-        Assert.Contains("version 3", loaded.Message);
-        Assert.Contains("reads versions 1 to 2", loaded.Message);
+        // Derived from the constants, not from today's numbers: a schema bump must not make this fact a lie.
+        Assert.Contains($"version {SessionManifest.CurrentSchemaVersion + 1}", loaded.Message);
+        Assert.Contains($"reads versions {SessionManifest.OldestReadableSchemaVersion} to {SessionManifest.CurrentSchemaVersion}", loaded.Message);
         Assert.Contains("newer build", loaded.Message);
 
         SessionStore.Save(directory, Manifest(0) with { SchemaVersion = 0 });
@@ -350,11 +352,42 @@ public sealed class ProjectPersistenceTests : IDisposable
         Assembly loadAssembly = typeof(SessionStore).Assembly;
         string[] referenced = [.. loadAssembly.GetReferencedAssemblies().Select(name => name.Name!)];
 
-        // 1) It does not reference the hardware assembly at all, nor the session type that drives it.
-        Assert.DoesNotContain("AudioOptimizer.Audio", referenced);
-        Assert.DoesNotContain("AudioOptimizer.Measurement", referenced);
-        Assert.DoesNotContain("AudioOptimizer.Core", referenced);
-        Assert.Contains("System.Runtime", referenced);
+        // 1) Transitive reachability, not one hop. The property this test is named for is "the load path cannot
+        //    open a device"; the one-hop reference list was only a proxy for it, and a helper that referenced the
+        //    audio assembly would have slipped past. AudioOptimizer.Core is now referenced on purpose (it holds the
+        //    calibration payload the format persists), so the ban belongs on the two assemblies that can open a device.
+        //    Visited set, not bare recursion: termination is then a property of this code rather than of today's
+        //    graph, so the next reference edge cannot turn the test into a hang.
+        var scanned = new HashSet<string>(StringComparer.Ordinal);
+        var queue = new Queue<Assembly>([loadAssembly]);
+        while (queue.Count > 0)
+        {
+            Assembly node = queue.Dequeue();
+            if (!scanned.Add(node.GetName().Name!)) continue;
+
+            string[] names = [.. node.GetReferencedAssemblies().Select(name => name.Name!)];
+            Assert.DoesNotContain("AudioOptimizer.Audio", names);
+            Assert.DoesNotContain("AudioOptimizer.Measurement", names);
+            Assert.Contains("System.Runtime", names);
+
+            // Recurse only over this solution's own assemblies: a framework assembly's closure is large and would
+            // make the walk depend on the runtime's shape rather than on ours.
+            foreach (string name in names.Where(name => name.StartsWith("AudioOptimizer.", StringComparison.Ordinal)))
+                queue.Enqueue(Assembly.Load(name));
+        }
+
+        //    Positive control, and it is on what was SCANNED rather than on names observed: IO names Core directly,
+        //    so "Core appears among the names" would also pass in a walk that never recursed. Asserting that Core's
+        //    own list was walked is what proves the descent ran, and it is the fact the transitivity argument rests
+        //    on. No count is pinned: a future legitimate IO edge must not break this test.
+        Assert.Contains("AudioOptimizer.Core", scanned);
+
+        //    ...and the transitivity argument rests on Core being a leaf, so state that fact instead of leaving it
+        //    implicit: it is what makes "IO references Core" unable to smuggle a device in behind our backs.
+        string[] coreReferences = [.. typeof(AudioOptimizer.Core.SweepSettings).Assembly.GetReferencedAssemblies().Select(name => name.Name!)];
+        Assert.DoesNotContain(coreReferences, name => name.StartsWith("AudioOptimizer.", StringComparison.Ordinal));
+        Assert.Contains("System.Runtime", coreReferences);
+        _output.WriteLine($"IO closure scanned: {string.Join(", ", scanned)}; direct references: {string.Join(", ", referenced)}");
 
         // 2) Its target framework is plain net10.0, not the -windows TFM the hardware projects use: there is no
         //    Windows-only API it could even reach.
@@ -372,6 +405,71 @@ public sealed class ProjectPersistenceTests : IDisposable
             typeof(SessionStore).GetMethods().SelectMany(m => m.GetParameters()).Select(p => p.ParameterType.Name),
             name => name == "IAudioBackend");
         _output.WriteLine($"load assembly references: {string.Join(", ", referenced)}");
+    }
+
+    [Fact]
+    public void A_calibration_round_trips_and_the_reopened_project_still_labels_its_claim()
+    {
+        string directory = NewDirectory();
+        var calibration = new MicrophoneCalibration("7187696", 94.0,
+            [new CalibrationPoint(20.0, -3.5), new CalibrationPoint(1000.0, 0.5)]);
+        SessionStore.Save(directory, Manifest(0) with { Calibration = CalibrationManifest.From(calibration) });
+
+        ProjectLoadResult loaded = SessionStore.Load(directory);
+        Assert.Equal(ProjectLoadProblem.None, loaded.Problem);
+        Assert.Equal(SessionManifest.CurrentSchemaVersion, loaded.Require().SchemaVersion);   // 3
+
+        Assert.True(loaded.Require().Calibration!.TryBuild(out MicrophoneCalibration? restored, out string reason), reason);
+        Assert.Equal(calibration.Identity, restored!.Identity);
+        Assert.Equal(calibration.SensitivityDbSplPerFullScale, restored.SensitivityDbSplPerFullScale, 12);
+        Assert.Equal(calibration.Points, restored.Points);
+
+        // Reopening the project re-renders the claim it originally made, including the ACHIEVED extent: a file that
+        // stops at 1 kHz must not let a 20 kHz value look calibrated.
+        string label = LevelReference.SplCalibrated(restored).AxisLabel;
+        Assert.Contains("7187696", label, StringComparison.Ordinal);
+        Assert.Contains("94.0", label, StringComparison.Ordinal);
+        Assert.Contains("20-1000 Hz calibrated", label, StringComparison.Ordinal);
+        _output.WriteLine(label);
+    }
+
+    [Fact]
+    public void A_manifest_claiming_an_unreproducible_calibration_is_refused()
+    {
+        string directory = NewDirectory();
+        // The block's presence IS the claim of an absolute reference. With no identity and no sensitivity the claim
+        // cannot be reproduced, so the load is refused rather than silently downgraded to a relative label — the
+        // same shape as a newer schema version, and on the metadata-only path (no signals requested) as well.
+        SessionStore.Save(directory, Manifest(0) with { Calibration = new CalibrationManifest("", null, null) });
+
+        ProjectLoadResult loaded = SessionStore.Load(directory);
+        Assert.Equal(ProjectLoadProblem.CalibrationNotReproducible, loaded.Problem);
+        Assert.Empty(loaded.Measurements);
+        Assert.Equal([SessionStore.ManifestPath(directory)], loaded.AffectedPaths);
+        Assert.Contains("cannot be reproduced", loaded.Message, StringComparison.Ordinal);
+        _output.WriteLine(loaded.Message);
+
+        // One missing piece is enough: sensitivity present, identity blank.
+        string noIdentity = NewDirectory();
+        SessionStore.Save(noIdentity, Manifest(0) with { Calibration = new CalibrationManifest("  ", 94.0, [new CalibrationPoint(20.0, 0.0)]) });
+        Assert.Equal(ProjectLoadProblem.CalibrationNotReproducible, SessionStore.Load(noIdentity).Problem);
+
+        // And it is refused with signals too, so the placement cannot be signalled by which load asked.
+        Assert.Equal(ProjectLoadProblem.CalibrationNotReproducible, SessionStore.Load(directory, withSignals: true).Problem);
+    }
+
+    [Fact]
+    public void A_v2_manifest_with_no_calibration_loads_cleanly()
+    {
+        string directory = NewDirectory();
+        // Absence is not a claim: the refusal must fire on an unreproducible CLAIM, never on a missing block, or
+        // every project written before §27 would stop opening.
+        SessionStore.Save(directory, Manifest(0) with { SchemaVersion = 2 });
+
+        ProjectLoadResult loaded = SessionStore.Load(directory);
+        Assert.Equal(ProjectLoadProblem.None, loaded.Problem);
+        Assert.Null(loaded.Require().Calibration);        // and nothing is fabricated for it either
+        Assert.Equal(2, loaded.Require().SchemaVersion);  // read as written, not rewritten in place
     }
 
     private static SlotManifest Slot(int recordingLength) => new(

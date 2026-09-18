@@ -25,6 +25,13 @@ public enum ProjectLoadProblem
 
     /// <summary>A signal file is present but could not be parsed as WAV.</summary>
     SignalFileUnreadable,
+
+    /// <summary>
+    /// The manifest records a calibrated level reference whose calibration cannot be rebuilt (no identity, no
+    /// absolute sensitivity, or points that are not a function). Refused rather than downgraded: the file claims
+    /// an absolute number, and silently labelling it relative would report a different quantity than it says.
+    /// </summary>
+    CalibrationNotReproducible,
 }
 
 /// <summary>One measurement's metadata plus the signal data the project stored for it.</summary>
@@ -130,6 +137,16 @@ public static class SessionStore
                 path);
 
         SessionManifest normalized = Normalize(manifest);
+
+        // A calibration block IS the claim of an absolute reference, so an unreproducible one is refused with a
+        // structured problem — the same shape as a newer schema version, because both mean "I cannot reproduce
+        // what this file says". A manifest with no calibration block claims nothing and loads as before.
+        if (manifest.Calibration is { } claim && !claim.TryBuild(out _, out string unreproducible))
+            return ProjectLoadResult.Failed(
+                ProjectLoadProblem.CalibrationNotReproducible,
+                $"'{path}' records a calibrated level reference whose calibration cannot be reproduced: {unreproducible}.",
+                path);
+
         if (!withSignals)
             return new ProjectLoadResult(normalized, [], ProjectLoadProblem.None, $"Loaded '{path}'.", []);
 

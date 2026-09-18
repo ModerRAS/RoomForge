@@ -43,7 +43,7 @@ public sealed class ProjectLoadViewTests(ITestOutputHelper output)
             Assert.Equal(0, viewModel.MissingSignalCount);
             Assert.Equal("6 slots: 1 done, 1 invalid, 1 skipped, 3 pending", viewModel.StatusLine);
             Assert.Equal("no missing or unreadable files", viewModel.AffectedPathSummary);
-            Assert.Equal("schema 2", viewModel.Schema);
+            Assert.Equal($"schema {SessionManifest.CurrentSchemaVersion}", viewModel.Schema);      // derived in production, so derived here
             Assert.Equal("20–150 Hz, 1 s @ 48000 Hz", viewModel.Sweep);
             // 1.8 × 1.0 × 0.6 m at 1 × 1 × 2 = 2 grid points, formatted with "0.##".
             Assert.Equal("1 × 1 × 2 = 2 points, 1.8 × 1 × 0.6 m", viewModel.Grid);

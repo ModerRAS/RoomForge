@@ -2,6 +2,7 @@
 
 using System.IO;
 using System.Reflection;
+using AudioOptimizer.Core;
 using AudioOptimizer.Visualization;
 using Xunit.Abstractions;
 
@@ -98,7 +99,7 @@ public sealed class LevelReferenceTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void No_production_code_path_can_produce_a_calibrated_reference_today()
+    public void Spl_is_reachable_only_through_a_parsed_calibration()
     {
         // 1) API surface: every public static VALUE of this type is a relative variant.
         LevelReference[] reachableValues =
@@ -119,17 +120,29 @@ public sealed class LevelReferenceTests(ITestOutputHelper output)
         Assert.Empty(typeof(LevelReference).GetConstructors(BindingFlags.Public | BindingFlags.Instance));
         Assert.Contains(typeof(LevelReference).GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance), c => c.IsPrivate);
 
-        // 3) Source scan: no production call site mentions either the calibrated variant or the calibration
-        //    payload type. This is the assertion that fails the day someone wires SPL without a calibration
-        //    source, which is stronger than a comment saying they should not.
+        // 3) Source scan as the positive counterpart of the guard this replaces: the payload can be CONSTRUCTED in
+        //    exactly one production place — the parser that read a calibration file — and SPL remains reachable only
+        //    through the reference that takes a payload. The old scan asserted that no calibration source existed;
+        //    §27 is that source arriving, so the guarantee moved from "nothing can claim SPL" to "only a parsed
+        //    calibration can". This is a spot check, not a proof: a factory or a deserialiser would evade these two
+        //    token spellings, which is why the reflection guards above carry the weight.
         string[] productionFiles = [.. Directory.GetFiles(Path.Combine(TestPaths.RepoRoot, "src"), "*.cs", SearchOption.AllDirectories)];
         Assert.NotEmpty(productionFiles);
-        string[] splCallSites = [.. productionFiles.Where(file => File.ReadAllText(file).Contains("SplCalibrated", StringComparison.Ordinal))];
-        string[] calibrationTypes = [.. productionFiles.Where(file => File.ReadAllText(file).Contains("MicrophoneCalibration", StringComparison.Ordinal))];
 
-        string definition = Path.Combine("src", "AudioOptimizer.Visualization", "LevelReference.cs");
-        Assert.Equal([Path.Combine(TestPaths.RepoRoot, definition)], splCallSites);
-        Assert.Equal([Path.Combine(TestPaths.RepoRoot, definition)], calibrationTypes);
-        output.WriteLine($"SplCalibrated appears in {splCallSites.Length} production file(s); no calibration source exists in src/.");
+        string definition = Path.Combine(TestPaths.RepoRoot, "src", "AudioOptimizer.Core", "MicrophoneCalibration.cs");
+        Assert.True(File.Exists(definition), $"{definition} must exist: the payload lives in Core so IO can parse it and Visualization can label with it.");
+
+        string[] constructors = [.. productionFiles.Where(file => File.ReadAllText(file).Contains("new MicrophoneCalibration(", StringComparison.Ordinal))];
+        string[] splCallSites = [.. productionFiles.Where(file => File.ReadAllText(file).Contains("SplCalibrated", StringComparison.Ordinal))];
+
+        // Two legitimate construction sites, and both rebuild a calibration that carries an absolute reference: the
+        // file parser, and the manifest rebuild that turns a SAVED project back into a payload. Nothing else in
+        // production can construct one, which is the guarantee that matters — SPL cannot be reached from thin air,
+        // and a third site appears here rather than passing unnoticed.
+        string parser = Path.Combine(TestPaths.RepoRoot, "src", "AudioOptimizer.IO", "CalibrationFileParser.cs");
+        string persisted = Path.Combine(TestPaths.RepoRoot, "src", "AudioOptimizer.IO", "SessionManifest.cs");
+        Assert.Equal([parser, persisted], [.. constructors.OrderBy(file => file, StringComparer.Ordinal)]);
+        Assert.Equal([Path.Combine(TestPaths.RepoRoot, "src", "AudioOptimizer.Visualization", "LevelReference.cs")], splCallSites);
+        output.WriteLine($"'new MicrophoneCalibration(' appears in {constructors.Length} production file(s); SplCalibrated in {splCallSites.Length}; the payload type is defined in Core.");
     }
 }

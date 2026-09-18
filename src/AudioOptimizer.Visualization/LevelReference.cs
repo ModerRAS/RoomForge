@@ -1,33 +1,7 @@
 namespace AudioOptimizer.Visualization;
 
-/// <summary>
-/// Microphone calibration data: the identity of the calibration and the sensitivity that turns a relative
-/// reading into an absolute one. This exists so that "SPL" can never be claimed without saying what it is
-/// based on — see <see cref="LevelReference.SplCalibrated"/>.
-/// </summary>
-/// <param name="Identity">Which calibration this is, e.g. a file name or serial. Required: an unattributed calibration claim is not a claim.</param>
-/// <param name="SensitivityDbSplPerFullScale">
-/// dB SPL that corresponds to a full-scale reading of the microphone, in dBFS/SPL. ponytail: the sign
-/// convention is unverified because no calibration source exists yet (§27 defers it); it must be fixed
-/// against a real UMIK-1 file before any SPL number is shown to a user.
-/// </param>
-public sealed record MicrophoneCalibration
-{
-    public MicrophoneCalibration(string identity, double sensitivityDbSplPerFullScale)
-    {
-        if (string.IsNullOrWhiteSpace(identity))
-            throw new ArgumentException("A calibration must name itself; 'SPL' with an anonymous calibration is not reproducible.", nameof(identity));
-        if (!double.IsFinite(sensitivityDbSplPerFullScale))
-            throw new ArgumentOutOfRangeException(nameof(sensitivityDbSplPerFullScale), sensitivityDbSplPerFullScale, "The sensitivity must be finite.");
-
-        Identity = identity;
-        SensitivityDbSplPerFullScale = sensitivityDbSplPerFullScale;
-    }
-
-    public string Identity { get; }
-
-    public double SensitivityDbSplPerFullScale { get; }
-}
+using System.Globalization;
+using AudioOptimizer.Core;
 
 /// <summary>Which reference a level is stated against. Exists so labels and colour scales stay in step.</summary>
 public enum LevelReferenceKind
@@ -38,7 +12,7 @@ public enum LevelReferenceKind
     /// <summary>Relative to the loudest measured bin of the same series, in dB, always ≤ 0.</summary>
     NormalisedToMax,
 
-    /// <summary>Absolute dB SPL against a named calibration. Unreachable until a calibration source exists.</summary>
+    /// <summary>Absolute dB SPL against a named calibration, reachable only through a parsed calibration payload.</summary>
     SplCalibrated,
 }
 
@@ -122,7 +96,20 @@ public abstract record LevelReference
     {
         public override LevelReferenceKind Kind => LevelReferenceKind.SplCalibrated;
 
-        public override string AxisLabel => $"dB SPL ({Calibration.Identity}, {AxisScale.FormatTick(Calibration.SensitivityDbSplPerFullScale, 1)} dBFS)";
+        // The label states the ACHIEVED calibrated extent, not the range anyone hoped for: a file that stops at
+        // 359 Hz must not let a 5 kHz value look calibrated. Same configured-versus-achieved pair as the band and
+        // the frequency selector.
+        public override string AxisLabel
+        {
+            get
+            {
+                string extent = Calibration.CalibratedExtent is { } range
+                    ? string.Create(CultureInfo.InvariantCulture, $"{range.MinHz:0.#}-{range.MaxHz:0.#} Hz calibrated")
+                    : "no correction points";
+                return string.Create(CultureInfo.InvariantCulture,
+                    $"dB SPL ({Calibration.Identity}, {AxisScale.FormatTick(Calibration.SensitivityDbSplPerFullScale, 1)} dBFS; {extent})");
+            }
+        }
 
         public override (double MinDb, double MaxDb) DefaultRangeDb => (60.0, 100.0);
 

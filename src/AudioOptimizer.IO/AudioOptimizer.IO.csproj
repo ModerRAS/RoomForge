@@ -6,4 +6,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- The microphone calibration payload is parsed here and persisted in this project's format, and
+         Visualization labels with it, so the one shape lives in Core at or below both. Still no reference to
+         AudioOptimizer.Audio: the load path must not be able to open a device. -->
+    <ProjectReference Include="..\AudioOptimizer.Core\AudioOptimizer.Core.csproj" />
+  </ItemGroup>
+
 </Project>
