@@ -9,7 +9,7 @@ namespace AudioOptimizer.Tests;
 public class ObjectiveFunctionTests
 {
     private static SpatialSummary Summary(double sigmaDb, double p90p10Db, double worstNullDb, double peakAboveMeanDb = 0.0)
-        => new(sigmaDb, 0.0, p90p10Db, worstNullDb, peakAboveMeanDb, [new FrequencyMetrics(50.0, 0.0, 0.0, sigmaDb, 0.0, 0.0, 0.0, 0.0, 0.0, p90p10Db)]);
+        => new(sigmaDb, 0.0, p90p10Db, worstNullDb, peakAboveMeanDb, [new FrequencyMetrics(50.0, 0.0, 0.0, sigmaDb, 0.0, 0.0, 0.0, 0.0, 0.0, p90p10Db)], OptimizationTestData.Band);
 
     [Fact]
     public void ScoreIsTheWeightedSumOfTheFourTerms()

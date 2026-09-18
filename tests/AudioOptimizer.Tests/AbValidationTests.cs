@@ -1,5 +1,11 @@
 namespace AudioOptimizer.Tests;
 
+using AudioOptimizer.Measurement;
+
+using System.Linq;
+
+using System.IO;
+
 using System.Numerics;
 using AudioOptimizer.Core;
 using AudioOptimizer.Optimization;
@@ -298,4 +304,51 @@ public sealed class AbValidationTests(ITestOutputHelper output)
     }
 
     private static double ComplexMathDb(double decibels) => Math.Pow(10.0, decibels / 20.0);
+
+    [Fact]
+    public void Every_ab_row_is_one_supplied_bin_in_position_then_bin_order()
+    {
+        // Real measured-shaped geometry rather than a round number: 143999 samples of IR → NextPowerOfTwo 262144 →
+        // Δf = 48000/262144 = 0.18310546875 → 710 in-band bins, 3 positions → 2130 rows. The magnitudes are synthetic but
+        // non-zero on purpose: AbValidation treats a numerically-zero bin as degenerate (MinimumMagnitude = 1e-12), so a
+        // zero input would shrink the row count for an arithmetic reason instead of exposing a defect.
+        string directory = Path.Combine(Path.GetTempPath(), $"roomforge-abrows-{Guid.NewGuid():N}");
+        var sweep = new SweepSettings(20.0, 150.0, 1.0, 48000);
+        MeasurementSession session = MeasurementSession.Start(directory, MeasurementGrid.Create(1.8, 1.0, 0.6, 3, 1, 1), sweep);
+        MeasurementSlot first = session.MarkDone(session.NextPending!, new double[96000], new double[143999], peakMagnitude: 0.1);
+        FrequencyResponse[] bins = [.. session.InBandResponseOf(first)!.Select(bin => OptimizationTestData.Bin(bin.FrequencyHz, 1.0, 0.0))];
+        Assert.Equal(710, bins.Length);
+
+        var a = new List<PositionResponse>();
+        var b = new List<PositionResponse>();
+        for (int i = 0; i < 3; i++)
+        {
+            a.Add(new PositionResponse($"p{i}", session.Band, bins));
+            b.Add(new PositionResponse($"p{i}", session.Band, bins));
+        }
+
+        var measurement = new DualSubMeasurement(a, b);
+        SubwooferSetting setting = OptimizationTestData.Setting(1.5, 30.0);
+        IReadOnlyList<PositionResponse> predicted = SubwooferModel.Combine(measurement, setting);
+        AbValidationResult result = AbValidation.Compare(measurement, predicted, setting);
+
+        // Strictly stronger than the two-input comparison this replaces: the count catches a selecting or zeroing step
+        // inside the analysis, and the per-row frequency catches a mis-pairing or reordering step — which the original
+        // comparison would also have missed. Nested walk, not i * binsPerPosition + k, so it stays correct if a uniform
+        // bin count is ever relaxed.
+        int expected = predicted.Sum(position => position.Bins.Count);
+        Assert.Equal(710 * 3, expected);
+        Assert.Equal(expected, result.Errors.Count);
+
+        int row = 0;
+        foreach (PositionResponse position in predicted)
+            foreach (FrequencyResponse bin in position.Bins)
+            {
+                Assert.Equal(position.PointId, result.Errors[row].PointId);
+                Assert.Equal(bin.FrequencyHz, result.Errors[row].FrequencyHz);
+                row++;
+            }
+
+        Assert.Equal(expected, row);
+    }
 }

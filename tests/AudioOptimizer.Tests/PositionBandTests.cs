@@ -47,7 +47,13 @@ public sealed class PositionBandTests
         var position = new PositionResponse(slot.Point.Id, session.Band, inBand);
         Assert.Equal(710, position.Bins.Count);
         Assert.Equal(inBand.Length, position.Bins.Count);
-        Assert.Equal(131073, session.FrequencyResponseOf(slot)!.Length);        // the spectrum is still there to be refused
+        Assert.Equal(131073, session.FrequencyResponseOf(slot)!.Length);
+
+        // The summary states the band its numbers cover, read from the shared reference position the grid guard has
+        // already proved representative — that is what lets a panel report configured-and-achieved, not just the request.
+        SpatialSummary summary = SpatialMetrics.Compute([position]);
+        Assert.Equal(position.AnalysisBand, summary.AnalysisBand);
+        Assert.Equal(session.Band, summary.AnalysisBand);        // the spectrum is still there to be refused
         // This is not a band test: it feeds the RAW whole-spectrum accessor output plus the session's band to the
         // constructor and asserts it throws. That is the type-level proof the wrong accessor cannot be laundered into the
         // engine — stronger than a source scan, which checks call sites, because this checks the value is unconstructible.

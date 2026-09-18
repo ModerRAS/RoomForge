@@ -1,5 +1,7 @@
 namespace AudioOptimizer.Optimization;
 
+using AudioOptimizer.Core;
+
 /// <summary>
 /// Spread of the predicted level across the N measurement positions at one frequency. All values are dB.
 /// <para>
@@ -36,6 +38,11 @@ public sealed record FrequencyMetrics(
 /// measuring uniformity rather than level. The boost the max-boost limit constrains is a different,
 /// measurement-relative quantity — see <see cref="ObjectiveFunction.MaxBoostVsBaselineDb"/>.
 /// </para>
+/// <para>
+/// <see cref="AnalysisBand"/> states what every number here covers. It is carried rather than left implicit so a
+/// consumer can report configured-versus-achieved without re-deriving the band from the session, and it is read from the
+/// shared reference position the grid guard has already proved representative.
+/// </para>
 /// </summary>
 public sealed record SpatialSummary(
     double MeanStdDevDb,
@@ -43,7 +50,8 @@ public sealed record SpatialSummary(
     double MeanP90P10Db,
     double WorstNullDb,
     double MaxPeakAboveMeanDb,
-    IReadOnlyList<FrequencyMetrics> PerFrequency);
+    IReadOnlyList<FrequencyMetrics> PerFrequency,
+    FrequencyBand AnalysisBand);
 
 /// <summary>Level spread across positions, per frequency and aggregated over the band. Pure functions, no state.</summary>
 public static class SpatialMetrics
@@ -112,7 +120,8 @@ public static class SpatialMetrics
             sumP90P10 / binCount,
             worstNull,
             maxPeakAboveMean,
-            perFrequency);
+            perFrequency,
+            totals[0].AnalysisBand);      // the reference position the guard proved representative
     }
 
     /// <summary>Level spread across the N positions at one frequency.</summary>
