@@ -20,6 +20,8 @@
     <ProjectReference Include="..\AudioOptimizer.Audio\AudioOptimizer.Audio.csproj" />
     <ProjectReference Include="..\AudioOptimizer.Measurement\AudioOptimizer.Measurement.csproj" />
     <ProjectReference Include="..\AudioOptimizer.Optimization\AudioOptimizer.Optimization.csproj" />
+    <!-- The offline lab: a consumer of the measurement chain and the optimizer, never a dependency of either. -->
+    <ProjectReference Include="..\AudioOptimizer.Simulation\AudioOptimizer.Simulation.csproj" />
   </ItemGroup>
 
 </Project>

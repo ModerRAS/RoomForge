@@ -41,6 +41,10 @@ public partial class ShellView : UserControl
         // its own. Nothing refreshes it on tab selection: it re-reads its steps when either panel notifies.
         Wizard = new MeasurementWizardViewModel(Flow, Optimizer);
         WizardPanel.DataContext = Wizard;
+        SimulationPanel.DataContext = Simulation;
+        // The page's figures are drawn from the view model's own plot objects, exactly as the analysis and heatmap
+        // panels' are: no physics and no formatting lives in this file.
+        Simulation.PropertyChanged += (_, _) => RenderSimulation();
         // The limit is a fixed set of three values, so the control is populated from the set itself: a fourth value
         // cannot be selected because it is not in the control, and the view model refuses one anyway.
         MaxBoostBox.ItemsSource = OptimizerPanelViewModel.AllowedMaxBoostDb;
@@ -73,6 +77,12 @@ public partial class ShellView : UserControl
 
     /// <summary>§24's twelve guided steps, presented over <see cref="Flow"/> and <see cref="Optimizer"/>.</summary>
     public MeasurementWizardViewModel Wizard { get; }
+
+    /// <summary>
+    /// The offline lab. It measures nothing and opens nothing: the run is the page's own button, off the UI thread,
+    /// through a virtual audio backend.
+    /// </summary>
+    public SimulationPanelViewModel Simulation { get; } = new();
 
     /// <summary>The optimizer panel's content element, for render tests that must select its tab first.</summary>
     public FrameworkElement OptimizePanel => OptimizerPanel;
@@ -155,6 +165,26 @@ public partial class ShellView : UserControl
         else
         {
             PositionMapHost.Content = null;
+        }
+    }
+
+    /// <summary>Draws whatever the simulation page's view model now holds — including nothing, which clears the figures.</summary>
+    private void RenderSimulation()
+    {
+        SimulationChartHost.Children.Clear();
+        foreach (CurvePlot plot in Simulation.Plots)
+        {
+            var chart = new CurveChart();
+            chart.Show(plot);
+            SimulationChartHost.Children.Add(chart);
+        }
+
+        SimulationPlaneHost.Children.Clear();
+        foreach (Visualization.Heatmap plane in Simulation.Planes)
+        {
+            var view = new HeatmapView();
+            view.Show(plane);
+            SimulationPlaneHost.Children.Add(view);
         }
     }
 

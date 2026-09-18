@@ -305,5 +305,90 @@
             <controls:WizardView x:Name="WizardContent" />
         </Grid>
         </TabItem>
+
+        <!-- The offline simulation, appended after the wizard for the same reason: every tab before it keeps its
+             index. Nothing on this page opens a device, and the run is the user's click. -->
+        <TabItem x:Name="SimulationTab" Header="Offline Simulation">
+        <Grid x:Name="SimulationPanel" Margin="8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0">
+                <TextBlock Text="Offline simulation" FontSize="18" FontWeight="SemiBold" Foreground="#FF202020" />
+                <TextBlock TextWrapping="Wrap" Foreground="#FF606060"
+                           Text="A shoebox image-source room measured through the product's own chain: the same sweep, deconvolution, impulse response, FFT and quality checks. No audio device is opened and nothing external is invoked." />
+            </StackPanel>
+
+            <Grid Grid.Row="1" Margin="0,10,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,6,0" Text="Scenario" />
+                <ComboBox x:Name="ScenarioBox" Grid.Column="1" Padding="4,2" DisplayMemberPath="Title"
+                          ItemsSource="{Binding Scenarios}" SelectedItem="{Binding Scenario}" />
+                <Button x:Name="GenerateButton" Grid.Column="2" Margin="8,0,0,0" Padding="12,3"
+                        Content="Generate simulation" Command="{Binding GenerateCommand}" IsEnabled="{Binding CanGenerate}" />
+            </Grid>
+
+            <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                <TextBlock Text="Room (m) and listening grid (m)" Foreground="#FF606060" />
+                <StackPanel Orientation="Horizontal">
+                    <TextBox x:Name="RoomLengthBox" Width="60" Padding="4,2" Text="{Binding RoomLength, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox x:Name="RoomWidthBox" Width="60" Margin="6,0,0,0" Padding="4,2" Text="{Binding RoomWidth, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox x:Name="RoomHeightBox" Width="60" Margin="6,0,0,0" Padding="4,2" Text="{Binding RoomHeight, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Foreground="#FF606060" Text="grid" />
+                    <TextBox x:Name="RegionWidthBox" Width="60" Margin="6,0,0,0" Padding="4,2" Text="{Binding RegionWidth, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox x:Name="RegionDepthBox" Width="60" Margin="6,0,0,0" Padding="4,2" Text="{Binding RegionDepth, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox x:Name="RegionHeightBox" Width="60" Margin="6,0,0,0" Padding="4,2" Text="{Binding RegionHeight, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Grid.Row="3" Margin="0,8,0,0">
+                <TextBlock Text="Sub A (m) and sub B (m)" Foreground="#FF606060" />
+                <StackPanel Orientation="Horizontal">
+                    <TextBox x:Name="SubAXBox" Width="60" Padding="4,2" Text="{Binding SubAX, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox x:Name="SubAYBox" Width="60" Margin="6,0,0,0" Padding="4,2" Text="{Binding SubAY, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox x:Name="SubAZBox" Width="60" Margin="6,0,0,0" Padding="4,2" Text="{Binding SubAZ, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Margin="14,0,0,0" VerticalAlignment="Center" Foreground="#FF606060" Text="B" />
+                    <TextBox x:Name="SubBXBox" Width="60" Margin="6,0,0,0" Padding="4,2" Text="{Binding SubBX, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox x:Name="SubBYBox" Width="60" Margin="6,0,0,0" Padding="4,2" Text="{Binding SubBY, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox x:Name="SubBZBox" Width="60" Margin="6,0,0,0" Padding="4,2" Text="{Binding SubBZ, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Grid.Row="4" Margin="0,8,0,0">
+                <TextBlock Text="Sweep (Hz, s), noise floor, plane frequency (Hz)" Foreground="#FF606060" />
+                <StackPanel Orientation="Horizontal">
+                    <TextBox x:Name="StartHzBox" Width="60" Padding="4,2" Text="{Binding StartHz, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox x:Name="EndHzBox" Width="60" Margin="6,0,0,0" Padding="4,2" Text="{Binding EndHz, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox x:Name="DurationBox" Width="60" Margin="6,0,0,0" Padding="4,2" Text="{Binding DurationSeconds, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox x:Name="NoiseBox" Width="90" Margin="6,0,0,0" Padding="4,2" Text="{Binding NoiseLevel, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBox x:Name="PlaneFrequencyBox" Width="60" Margin="6,0,0,0" Padding="4,2" Text="{Binding HeatmapFrequencyHz, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Grid.Row="5" Margin="0,10,0,0">
+                <TextBlock x:Name="SimulationStatusText" TextWrapping="Wrap" Foreground="#FF202020" Text="{Binding Status}" />
+                <TextBlock x:Name="SimulationPipelineText" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="#FF404040" Text="{Binding PipelineText}" />
+                <TextBlock x:Name="SimulationStatsText" Margin="0,4,0,0" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="#FF202020" Text="{Binding StatsText}" />
+                <TextBlock x:Name="SimulationOptimizerText" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="#FF202020" Text="{Binding OptimizerText}" />
+                <TextBlock x:Name="SimulationGroundTruthText" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="#FF404040" Text="{Binding GroundTruthText}" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="6" Margin="0,6,0,0">
+                <StackPanel x:Name="SimulationChartHost" Orientation="Horizontal" />
+                <WrapPanel x:Name="SimulationPlaneHost" Orientation="Horizontal" Margin="0,8,0,0" />
+            </StackPanel>
+        </Grid>
+        </TabItem>
     </TabControl>
 </UserControl>
