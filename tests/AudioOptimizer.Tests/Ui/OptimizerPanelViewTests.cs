@@ -60,13 +60,17 @@ public sealed class OptimizerPanelViewTests(ITestOutputHelper output)
         Assert.True(panel.CanRun);
 
         // The one real search in this file: shared by every assertion that needs a result.
-        int caller = Environment.CurrentManagedThreadId;
-        var threads = new HashSet<int>();
-        panel.PropertyChanged += (_, args) =>
-        {
-            if (args.PropertyName == nameof(OptimizerPanelViewModel.IsBusy)) threads.Add(Environment.CurrentManagedThreadId);
-        };
-        await panel.RunAsync();
+        // The asynchrony claim is asserted as the property a user can actually observe: the call returns BEFORE the
+        // search finishes, so the busy state is up while it runs and the caller was free in between. That replaced an
+        // assertion that the IsBusy notifications carried a thread id other than the caller's — which is not a theorem,
+        // because IsBusy = true is raised synchronously on the caller and the continuation after the await is marshalled
+        // by whatever SynchronizationContext the caller is on (xUnit installs one, and it can hand the continuation
+        // straight back). Measured: that form failed once in two full-suite runs and passed 3/3 in isolation, while the
+        // engine's own thread-freedom is already pinned by ThreadFreeLayersTests.
+        Task run = panel.RunAsync();
+        Assert.True(panel.IsBusy, "the panel must report itself busy while the search runs");
+        await run;
+        Assert.False(panel.IsBusy);
 
         OptimizerResult result = Assert.IsType<OptimizerResult>(panel.Result);
         Assert.Equal(3.0, result.Options.MaxBoostLimitDb, 12);
@@ -81,11 +85,7 @@ public sealed class OptimizerPanelViewTests(ITestOutputHelper output)
         Assert.NotEmpty(panel.VerdictText);
         Assert.NotEmpty(panel.DiagnosisLines);
 
-        // The engine call is synchronous and thread-free (ThreadFreeLayersTests bans a Task-returning surface there);
-        // the asynchrony is the panel's, so the busy window's notifications come from off the caller's thread. That the
-        // continuation is marshalled back onto the dispatcher is the SAME pattern M2 pins against a real dispatcher.
-        Assert.NotEmpty(threads);
-        Assert.Contains(threads, thread => thread != caller);
+        Assert.False(panel.IsBusy);
     }
 
     [Fact]
