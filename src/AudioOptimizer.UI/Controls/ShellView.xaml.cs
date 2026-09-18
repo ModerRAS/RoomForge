@@ -37,6 +37,10 @@ public partial class ShellView : UserControl
         AnalysisPanel.DataContext = Analysis;
         HeatmapPanel.DataContext = Heatmaps;
         OptimizerPanel.DataContext = Optimizer;
+        // §24: the wizard presents the flow, so it is constructed from the two panels it reads and owns no data of
+        // its own. Nothing refreshes it on tab selection: it re-reads its steps when either panel notifies.
+        Wizard = new MeasurementWizardViewModel(Flow, Optimizer);
+        WizardPanel.DataContext = Wizard;
         // The limit is a fixed set of three values, so the control is populated from the set itself: a fourth value
         // cannot be selected because it is not in the control, and the view model refuses one anyway.
         MaxBoostBox.ItemsSource = OptimizerPanelViewModel.AllowedMaxBoostDb;
@@ -66,6 +70,9 @@ public partial class ShellView : UserControl
     public IReadOnlyList<HeatmapView> PlaneViews => [.. PlaneHost.Children.OfType<HeatmapView>()];
 
     public OptimizerPanelViewModel Optimizer { get; } = new();
+
+    /// <summary>§24's twelve guided steps, presented over <see cref="Flow"/> and <see cref="Optimizer"/>.</summary>
+    public MeasurementWizardViewModel Wizard { get; }
 
     /// <summary>The optimizer panel's content element, for render tests that must select its tab first.</summary>
     public FrameworkElement OptimizePanel => OptimizerPanel;

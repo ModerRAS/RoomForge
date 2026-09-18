@@ -297,5 +297,13 @@
                 </Grid>
             </Grid>
         </TabItem>
+
+        <!-- §24: the guide, appended LAST on purpose — the tabs before it keep their positions, because three
+             render tests select them by index (Measure 1, Analysis 2, Optimize 4). -->
+        <TabItem x:Name="WizardTab" Header="Wizard">
+        <Grid x:Name="WizardPanel" Margin="8">
+            <controls:WizardView x:Name="WizardContent" />
+        </Grid>
+        </TabItem>
     </TabControl>
 </UserControl>
