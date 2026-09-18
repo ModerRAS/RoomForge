@@ -29,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AudioOptimizer.Visualizatio
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AudioOptimizer.UI", "src\AudioOptimizer.UI\AudioOptimizer.UI.csproj", "{7CD9F5CD-0C62-49CB-9DF5-0F2B3FD64B27}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AudioOptimizer.Simulation", "src\AudioOptimizer.Simulation\AudioOptimizer.Simulation.csproj", "{E79167EC-A962-47BF-862F-B7F23E0EFD44}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -159,6 +161,18 @@ Global
 		{7CD9F5CD-0C62-49CB-9DF5-0F2B3FD64B27}.Release|x64.Build.0 = Release|Any CPU
 		{7CD9F5CD-0C62-49CB-9DF5-0F2B3FD64B27}.Release|x86.ActiveCfg = Release|Any CPU
 		{7CD9F5CD-0C62-49CB-9DF5-0F2B3FD64B27}.Release|x86.Build.0 = Release|Any CPU
+		{E79167EC-A962-47BF-862F-B7F23E0EFD44}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E79167EC-A962-47BF-862F-B7F23E0EFD44}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E79167EC-A962-47BF-862F-B7F23E0EFD44}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{E79167EC-A962-47BF-862F-B7F23E0EFD44}.Debug|x64.Build.0 = Debug|Any CPU
+		{E79167EC-A962-47BF-862F-B7F23E0EFD44}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{E79167EC-A962-47BF-862F-B7F23E0EFD44}.Debug|x86.Build.0 = Debug|Any CPU
+		{E79167EC-A962-47BF-862F-B7F23E0EFD44}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E79167EC-A962-47BF-862F-B7F23E0EFD44}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E79167EC-A962-47BF-862F-B7F23E0EFD44}.Release|x64.ActiveCfg = Release|Any CPU
+		{E79167EC-A962-47BF-862F-B7F23E0EFD44}.Release|x64.Build.0 = Release|Any CPU
+		{E79167EC-A962-47BF-862F-B7F23E0EFD44}.Release|x86.ActiveCfg = Release|Any CPU
+		{E79167EC-A962-47BF-862F-B7F23E0EFD44}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -174,5 +188,6 @@ Global
 		{F930B5BD-DB4E-4D5D-AC79-D45F9E41879E} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{0CD19349-6A28-4011-B39B-E2A7FCE411CB} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{7CD9F5CD-0C62-49CB-9DF5-0F2B3FD64B27} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{E79167EC-A962-47BF-862F-B7F23E0EFD44} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

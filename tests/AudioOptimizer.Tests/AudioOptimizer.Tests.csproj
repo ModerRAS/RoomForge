@@ -34,6 +34,9 @@
     <ProjectReference Include="..\..\src\AudioOptimizer.Optimization\AudioOptimizer.Optimization.csproj" />
     <ProjectReference Include="..\..\src\AudioOptimizer.Visualization\AudioOptimizer.Visualization.csproj" />
     <ProjectReference Include="..\..\src\AudioOptimizer.UI\AudioOptimizer.UI.csproj" />
+    <!-- The simulator is a CONSUMER of the measurement chain, never the other way round; the reference-direction
+         test asserts that Optimization does not reference it. -->
+    <ProjectReference Include="..\..\src\AudioOptimizer.Simulation\AudioOptimizer.Simulation.csproj" />
   </ItemGroup>
 
 </Project>

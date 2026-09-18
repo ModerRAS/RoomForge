@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Windows-only by construction, and deliberately not net10.0: the simulator's one entry into the product is the
+         SHARED measurement chain (PointMeasurement.Run), which lives in AudioOptimizer.Measurement because it drives
+         IAudioBackend, and that interface lives in AudioOptimizer.Audio (windows-only: NAudio's WASAPI members are
+         annotated). Re-implementing the chain on net10.0 to dodge this would be a second copy of the product's
+         deconvolution path, which is the drift PointMeasurement.Run's own comment warns about. -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>AudioOptimizer.Simulation</AssemblyName>
+    <RootNamespace>AudioOptimizer.Simulation</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Optimization is referenced so the scenario runner can hand a measurement set to the shipped search. The
+         reference is ONE WAY on purpose: Optimization must not know the Simulator exists, and a test asserts it. -->
+    <ProjectReference Include="..\AudioOptimizer.Audio\AudioOptimizer.Audio.csproj" />
+    <ProjectReference Include="..\AudioOptimizer.Core\AudioOptimizer.Core.csproj" />
+    <ProjectReference Include="..\AudioOptimizer.Dsp\AudioOptimizer.Dsp.csproj" />
+    <ProjectReference Include="..\AudioOptimizer.IO\AudioOptimizer.IO.csproj" />
+    <ProjectReference Include="..\AudioOptimizer.Measurement\AudioOptimizer.Measurement.csproj" />
+    <ProjectReference Include="..\AudioOptimizer.Optimization\AudioOptimizer.Optimization.csproj" />
+  </ItemGroup>
+
+</Project>
