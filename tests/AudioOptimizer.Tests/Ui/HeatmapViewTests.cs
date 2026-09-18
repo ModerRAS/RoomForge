@@ -15,6 +15,7 @@ using Xunit.Abstractions;
 /// changes, every plane is drawn against one shared scale, the §23 statement appears only when the figure is
 /// interpolated, and the frames are built from the grid rather than from a constant.
 /// </summary>
+[Collection(RenderCollection.Name)]
 public sealed class HeatmapViewTests(ITestOutputHelper output)
 {
     [Fact]

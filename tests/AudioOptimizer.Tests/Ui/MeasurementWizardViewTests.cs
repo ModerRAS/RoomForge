@@ -17,6 +17,7 @@ using Xunit.Abstractions;
 /// shell. The evidence shape is the standing one — text on the visual tree, geometry on the bitmap, every
 /// assertion paired with a negative twin, no committed baseline.
 /// </summary>
+[Collection(RenderCollection.Name)]
 public sealed class MeasurementWizardViewTests(ITestOutputHelper output)
 {
     /// <summary>Mirrors WizardView.xaml's pinned geometry, restated here rather than read from the control.</summary>

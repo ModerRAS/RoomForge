@@ -14,6 +14,7 @@ using Xunit.Abstractions;
 /// same-run determinism, data-derived pixel probes computed independently of the production transform, and
 /// artifacts confined to the system temp directory.
 /// </summary>
+[Collection(RenderCollection.Name)]
 public sealed class RenderEvidenceTests(ITestOutputHelper output)
 {
     private const int PinnedWidth = 320;

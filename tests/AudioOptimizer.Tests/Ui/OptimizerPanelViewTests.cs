@@ -18,6 +18,7 @@ using Xunit.Abstractions;
 /// pipeline — measured A+B against the model's prediction — reaches the panel with the engine's own structured causes.
 /// One real search is shared by the facts that need a result, because the search dominates the suite's runtime.
 /// </summary>
+[Collection(RenderCollection.Name)]
 public sealed class OptimizerPanelViewTests(ITestOutputHelper output)
 {
     [Fact]

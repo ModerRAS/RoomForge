@@ -1,5 +1,7 @@
 namespace AudioOptimizer.Visualization;
 
+using System.Collections.Immutable;
+
 /// <summary>
 /// The colour mapping for one figure: dB → colour, with the endpoints taken from a
 /// <see cref="LevelReference"/> rather than from a constant. That keeps the picture and its caption in step —
@@ -8,8 +10,12 @@ namespace AudioOptimizer.Visualization;
 /// </summary>
 public sealed record ColourScale
 {
-    /// <summary>Low → high ramp. Four stops is enough to read a room mode without a turbo palette.</summary>
-    private static readonly RgbColour[] Ramp =
+    /// <summary>
+    /// Low → high ramp. Four stops is enough to read a room mode without a turbo palette. Immutable by type and not
+    /// by convention, because an element write here would put writable shared state on the render path — the basis
+    /// for serialising the render test classes — so reverting this type is not a style choice.
+    /// </summary>
+    private static readonly ImmutableArray<RgbColour> Ramp =
     [
         new(0x0B, 0x3D, 0x91),   // deep blue — a null
         new(0x2E, 0x9B, 0xD6),   // blue

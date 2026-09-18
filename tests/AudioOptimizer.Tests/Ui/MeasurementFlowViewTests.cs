@@ -20,6 +20,7 @@ using Xunit.Abstractions;
 /// the value of a maintained counter, and never against a literal denominator.
 /// </para>
 /// </summary>
+[Collection(RenderCollection.Name)]
 public sealed class MeasurementFlowViewTests(ITestOutputHelper output)
 {
     [Fact]

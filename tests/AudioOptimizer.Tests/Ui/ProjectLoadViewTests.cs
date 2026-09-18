@@ -19,6 +19,7 @@ using Xunit.Abstractions;
 /// against the file format instead of a hand-built object graph.
 /// </para>
 /// </summary>
+[Collection(RenderCollection.Name)]
 public sealed class ProjectLoadViewTests(ITestOutputHelper output)
 {
     private const double SampleRate = 48000;

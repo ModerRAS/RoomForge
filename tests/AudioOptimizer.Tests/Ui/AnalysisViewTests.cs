@@ -16,6 +16,7 @@ using Xunit.Abstractions;
 /// derive the expected pixels with plain arithmetic — never through <see cref="AxisScale.ToPixel"/> — so a change to
 /// the production mapping that moves a curve shows up here as a failure rather than as a matching pair of bugs.
 /// </summary>
+[Collection(RenderCollection.Name)]
 public sealed class AnalysisViewTests(ITestOutputHelper output)
 {
     [Fact]
