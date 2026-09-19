@@ -88,7 +88,13 @@ public static class SubwooferOptimizer
         SpatialSummary summary = SpatialMetrics.Compute(totals);
         double maxBoost = ObjectiveFunction.MaxBoostVsBaselineDb(totals, baselineTotals);
         ObjectiveTerms terms = ObjectiveFunction.Terms(summary, maxBoost);
-        return new OptimizerCandidate(setting, summary, terms, terms.Score(options.Weights), maxBoost);
+
+        // A total that is exactly zero at one bin is −inf dB there, so the spread terms come out NaN ((−inf)−(−inf)).
+        // The honest score of an unbounded spread is +inf, not unrankable: mapping it keeps every candidate
+        // comparable, so IsBetter never falls through to the distance tie-break on a NaN score.
+        double score = terms.Score(options.Weights);
+        if (!double.IsFinite(score)) score = double.PositiveInfinity;
+        return new OptimizerCandidate(setting, summary, terms, score, maxBoost);
     }
 
     /// <summary>
@@ -365,16 +371,23 @@ public static class SubwooferOptimizer
                 Consider(current with { DelaySeconds = milliseconds / 1000.0 });
         }
 
-        /// <summary>Joint 2-D sweep of gain × phase over the whole allowed region: the stage that makes a coupled basin reachable.</summary>
+        /// <summary>
+        /// Joint 2-D sweep of gain × phase over the whole allowed region: the stage that makes a coupled basin
+        /// reachable. BOTH polarities are swept: with phase searched over [PhaseMin, PhaseMax] a single polarity
+        /// reaches only half the drive-rotation circle (the other half is that circle offset by 180°), so
+        /// inheriting the baseline polarity here would lock the search out of half the parameter space.
+        /// </summary>
         private void CoarseJointSweep()
         {
             SubwooferSetting current = Incumbent.Setting;
-            int polarity = current.Polarity;
 
-            foreach (double gain in Steps(_options.GainMinDb, _options.GainMaxDb, _options.GainCoarseStepDb))
+            foreach (int polarity in new[] { 1, -1 })
             {
-                foreach (double degrees in Steps(_options.PhaseMinDegrees, _options.PhaseMaxDegrees, _options.PhaseCoarseStepDegrees))
-                    Consider(current with { GainDb = gain, PhaseRad = degrees * RadiansPerDegree, Polarity = polarity });
+                foreach (double gain in Steps(_options.GainMinDb, _options.GainMaxDb, _options.GainCoarseStepDb))
+                {
+                    foreach (double degrees in Steps(_options.PhaseMinDegrees, _options.PhaseMaxDegrees, _options.PhaseCoarseStepDegrees))
+                        Consider(current with { GainDb = gain, PhaseRad = degrees * RadiansPerDegree, Polarity = polarity });
+                }
             }
         }
 

@@ -152,15 +152,15 @@ public class SubwooferOptimizerTests
         OptimizerResult unconstrained = SubwooferOptimizer.Search(conflicted, Options with { MaxBoostLimitDb = 1e9, Weights = noPenalty });
         Assert.True(unconstrained.Best!.MaxBoostVsBaselineDb > 3.0,
             $"the unconstrained optimum must exceed the default 3 dB limit, achieved {unconstrained.Best.MaxBoostVsBaselineDb:R}");
-        Assert.Equal(16.7154, unconstrained.Best.MaxBoostVsBaselineDb, 4);
+        Assert.Equal(16.5774, unconstrained.Best.MaxBoostVsBaselineDb, 4);
 
         OptimizerResult limited = SubwooferOptimizer.Search(conflicted, Options with { MaxBoostLimitDb = 3.0, Weights = noPenalty });
         Assert.NotNull(limited.Recommended);
         Assert.True(limited.Constraint.Binding, "the constraint changed the outcome, so Binding must be true");
         Assert.True(limited.Constraint.CandidatesRejected > 0, $"rejected {limited.Constraint.CandidatesRejected}");
-        // Measured: rejected 820 of 1066, recommended 0.700 dB / 6.000°, achieved 2.974091 dB ≤ 3.
-        Assert.Equal(820, limited.Constraint.CandidatesRejected);
-        Assert.Equal(1066, limited.Constraint.CandidatesEvaluated);
+        // Measured: rejected 1268 of 1541, recommended 0.700 dB / 6.000°, achieved 2.974091 dB ≤ 3.
+        Assert.Equal(1268, limited.Constraint.CandidatesRejected);
+        Assert.Equal(1541, limited.Constraint.CandidatesEvaluated);
         Assert.Equal(2.974091, limited.Constraint.MaxAchievedBoostDb!.Value, 6);
         Assert.True(limited.Constraint.MaxAchievedBoostDb!.Value <= 3.0, "a returned setting may never exceed the limit");
         Assert.Equal(0.700, limited.Recommended!.GainDb, 9);
@@ -193,8 +193,9 @@ public class SubwooferOptimizerTests
     public void EveryCandidateRejectedIsStructuredDataNotACrashOrASilentFallback()
     {
         // The measured setting achieves exactly 0 dB of boost, so a non-negative limit always has a legal
-        // candidate; reaching the all-rejected state needs a limit below the most attenuating candidate.
-        OptimizerResult result = SubwooferOptimizer.Search(OptimizationTestData.Room(), Options with { MaxBoostLimitDb = -7.0 });
+        // candidate; reaching the all-rejected state needs a limit below the most attenuating candidate —
+        // the deepest is now −9.841079 dB (both polarities searched), so −10 dB rejects all 1662.
+        OptimizerResult result = SubwooferOptimizer.Search(OptimizationTestData.Room(), Options with { MaxBoostLimitDb = -10.0 });
 
         Assert.Equal(OptimizationVerdict.NoSettingWithinBoostLimit, result.Verdict);
         Assert.Null(result.Recommended);
@@ -203,7 +204,7 @@ public class SubwooferOptimizerTests
         Assert.Equal(result.Constraint.CandidatesEvaluated, result.Constraint.CandidatesRejected);
         Assert.Null(result.Constraint.MaxAchievedBoostDb);
         // And it says how far the room is from obeying the limit, as data.
-        Assert.Equal(-6.792489, result.Constraint.LeastAchievedBoostDb, 6);
+        Assert.Equal(-9.841079, result.Constraint.LeastAchievedBoostDb, 6);
         // Nothing was returned, so nothing changed: after == before, in absolute numbers.
         Assert.Equal(result.ScoreBefore, result.ScoreAfter, 12);
         Assert.Equal(result.Before.MeanStdDevDb, result.After.MeanStdDevDb, 12);

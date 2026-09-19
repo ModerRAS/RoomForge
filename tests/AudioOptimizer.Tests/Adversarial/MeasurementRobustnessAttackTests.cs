@@ -159,12 +159,7 @@ public class MeasurementRobustnessAttackTests(ITestOutputHelper output)
             colouredTruth.A.Select(position => position.Bins.Select(bin => (bin.FrequencyHz, bin.Real, bin.Imag))));
     }
 
-    /// <summary>
-    /// The setting as numbers. Deliberately NOT the record's own ToString: the record's generated PrintMembers
-    /// includes its <c>Flipped</c> property, so <c>SubwooferSetting.ToString()</c> recurses until the stack guard
-    /// fires. The cause is pinned by
-    /// <see cref="A_setting_exposes_a_self_typed_property_that_makes_the_generated_ToString_recurse"/>.
-    /// </summary>
+    /// <summary>The setting as numbers, in the shape the wave report used; kept so test output stays stable.</summary>
     private static string Describe(SubwooferSetting? setting) => setting is null
         ? "none"
         : $"g {setting.GainDb:+0.0;-0.0;0.0} dB, p {setting.PhaseDegrees:0.0}°, pol {setting.Polarity:+#;-#;+1}, "
@@ -175,10 +170,10 @@ public class MeasurementRobustnessAttackTests(ITestOutputHelper output)
     {
         // Root cause of the printing defect found while pinning this wave: the positional record's generated
         // PrintMembers appends EVERY public instance property, including Flipped, whose type is the record itself —
-        // so SubwooferSetting.ToString(), and any record that contains one (OptimizerResult, OptimizerCandidate,
-        // GroundTruth, SimulationOutcome), recurses until the runtime's stack guard fires. The product's own
-        // formatters avoid ToString, so no shipped path hits it today; a log line would. This pin states the cause
-        // without triggering the crash (which the wave report replays in a scratch process).
+        // so the DEFAULT SubwooferSetting.ToString(), and any record that contains one (OptimizerResult,
+        // OptimizerCandidate, GroundTruth, SimulationOutcome), recursed until the runtime's stack guard fired. The
+        // wave fixed it with a manual PrintMembers (SubwooferSettingFormattingTests pins the printed form); this
+        // test keeps the cause visible without triggering a crash.
         var property = typeof(SubwooferSetting).GetProperty("Flipped", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(property);
         Assert.Equal(typeof(SubwooferSetting), property!.PropertyType);

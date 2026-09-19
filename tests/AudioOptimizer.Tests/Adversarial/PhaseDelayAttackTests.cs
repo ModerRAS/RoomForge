@@ -9,8 +9,10 @@ using AudioOptimizer.Optimization;
 /// pipeline. The heavy sweeps live in a scratch console outside the repo; these are the fast, deterministic
 /// pinned cases they produced, plus the acoustic identities the attack rests on.
 /// <para>
-/// Two pinned defects, both category 4 (optimizer). This file PINS THE OBSERVED behaviour so the suite stays
-/// green; each characterization test names the target assertion that replaces it when the defect is fixed.
+/// Two defects found by this attack, both category 4 (optimizer), both fixed in the wave they were found:
+/// polarity is now searched on both sides of the [0, 180] phase split inside the joint sweep, and a
+/// non-finite candidate score is mapped to +inf instead of being compared. The tests below pin the FIXED
+/// behaviour; the comment above each records the pre-fix numbers the fixture produced.
 /// </para>
 /// <list type="bullet">
 /// <item><description>
@@ -155,61 +157,51 @@ public class PhaseDelayAttackTests
     }
 
     /// <summary>
-    /// PD-1, pinned as observed. The shipped search is locked to the polarity the baseline sweep picked (+1
-    /// here) and can only reach rotations [0, 180]; the both-polarity reference reaches the other side (pol -1,
-    /// 96 deg) and is 8.54 score / 3.46 dB of mean sigma better.
-    /// <para>
-    /// TARGET ASSERTION after the fix: <c>search.Best!.Score &lt;= reference.Score + 1e-9</c> and
-    /// <c>search.Best.Summary.MeanStdDevDb &lt;= reference.Summary.MeanStdDevDb + 1e-9</c>.
-    /// </para>
+    /// PD-1 (fixed): the joint sweep now covers BOTH polarities, so the search reaches the optimum on either
+    /// side of the [0, 180] phase split. Before the fix the search was locked to the baseline polarity and
+    /// stalled at 25.8663 (sigma 5.1196) while a both-polarity reference reached 17.3286 (sigma 1.6583). The
+    /// diagnostic below (same staged search, phase ceiling 350 deg) is why the lock, not the staging, was the
+    /// cause: pol +1 at 275 deg and pol -1 at 95 deg are the same drive.
     /// </summary>
     [Fact]
-    public void TheSearchCannotReachAnOptimumOnTheLockedOutSideOfThePolaritySplit()
+    public void TheSearchReachesTheOptimumOnBothSidesOfThePolaritySplit()
     {
         DualSubMeasurement measurement = Fixture(F1A, F1B);
         OptimizerResult search = SubwooferOptimizer.Search(measurement, SearchOptions);
         OptimizerCandidate reference = SubwooferOptimizer.BruteForce(measurement, ReferenceOptions)
             ?? throw new InvalidOperationException("the reference found no legal candidate");
 
-        // Observed: the incumbent polarity is the measured one and the search stays on its side of the split.
-        Assert.Equal(1, search.Best!.Setting.Polarity);
-        Assert.Equal(-1.5, search.Best.Setting.GainDb, 9);
-        Assert.Equal(10.0, search.Best.Setting.PhaseDegrees, 9);
-        Assert.Equal(25.8663, search.Best.Score, 3);
-        Assert.Equal(5.1196, search.Best.Summary.MeanStdDevDb, 3);
+        Assert.NotNull(search.Best);
+        Assert.True(search.Best!.Score <= reference.Score + 1e-9,
+            $"PD-1: search {search.Best.Score:R} vs reference {reference.Score:R}");
+        Assert.True(search.Best.Summary.MeanStdDevDb <= reference.Summary.MeanStdDevDb + 1e-9,
+            $"PD-1: search sigma {search.Best.Summary.MeanStdDevDb:R} vs reference {reference.Summary.MeanStdDevDb:R}");
+        // Measured: 17.3224 (sigma 1.6512) against the coarse reference 17.3286 (sigma 1.6583).
+        Assert.Equal(17.3224, search.Best.Score, 3);
+        Assert.Equal(1.6512, search.Best.Summary.MeanStdDevDb, 3);
+        Assert.True(search.Best.Score < 18.0, "the fixed search must not stall near the old 25.87 locked result");
 
-        // Observed: the reference reaches the acoustically equivalent optimum on the other side.
-        Assert.Equal(-1, reference.Setting.Polarity);
-        Assert.Equal(96.0, reference.Setting.PhaseDegrees, 9);
+        // The reference reaches the same drive on the other side of the split; the spelling may differ.
         Assert.Equal(17.3286, reference.Score, 3);
         Assert.Equal(1.6583, reference.Summary.MeanStdDevDb, 3);
 
-        // And the diagnosis is the lock, not the staging: the SAME staged search with the phase ceiling moved
-        // to 350 deg (still one polarity) reaches the reference's score, because 275 deg and pol -1 / 96 deg
-        // are the same drive.
+        // The wide-phase diagnostic spells the SAME drive the other way; it must score the same as the fixed
+        // search rather than 8.54 worse.
         OptimizerResult wide = SubwooferOptimizer.Search(measurement, SearchOptions with { PhaseMaxDegrees = 350.0 });
-        Assert.Equal(1, wide.Best!.Setting.Polarity);
-        Assert.Equal(275.0, wide.Best.Setting.PhaseDegrees, 9);
-        Assert.True(wide.Best.Score <= reference.Score + 1e-3,
-            $"PD-1 diagnosis: the wide-phase staged search reached {wide.Best.Score:F4} against the reference {reference.Score:F4}");
-
-        // The defect, as a number. Flip this to <= 1e-9 (and the assertions above to the reference's) after the fix.
-        Assert.True(search.Best.Score - reference.Score > 8.0,
-            $"PD-1: the locked polarity cost {search.Best.Score - reference.Score:F4} score, expected > 8.0 in the buggy build");
+        Assert.True(wide.Best!.Score <= reference.Score + 1e-3,
+            $"wide-phase staged search reached {wide.Best.Score:F4} against the reference {reference.Score:F4}");
+        Assert.True(Math.Abs(search.Best.Score - wide.Best.Score) < 1e-6,
+            $"the two spellings of the same drive must score the same: {search.Best.Score:R} vs {wide.Best.Score:R}");
     }
 
     /// <summary>
-    /// PD-2, pinned as observed. One candidate — (0 dB, +1, 20 deg, 0 s) — cancels exactly at position 0/bin 0.
-    /// Its score is NaN; the trace shows the NaN entering at the joint 2-D coarse stage, after which the search
-    /// follows the distance tie-break instead of the score and returns 38.7272 (sigma 7.7526) where the
-    /// both-polarity reference reaches 14.9047 (sigma 1.7669).
-    /// <para>
-    /// TARGET ASSERTION after the fix: the search must still return the reference-quality setting (NaN scores
-    /// must not be admissible incumbents), i.e. <c>search.Best!.Score &lt;= reference.Score + 1e-9</c>.
-    /// </para>
+    /// PD-2 (fixed): an exactly cancelling candidate still produces a NaN score (the trap assertion below),
+    /// but a non-finite score is now mapped to +inf instead of being compared, so it can never become the
+    /// incumbent and the search no longer walks by distance-to-measured-setting. Before the fix this fixture
+    /// returned 38.7272 (sigma 7.7526); after it the search beats the (coarse) both-polarity reference.
     /// </summary>
     [Fact]
-    public void AnExactlyCancellingCandidateTurnsTheSearchIntoADistanceWalk()
+    public void AnExactlyCancellingCandidateNoLongerDerailsTheSearch()
     {
         double[][] a = [.. F2A.Select(row => (double[])row.Clone())];
         var rotation = Complex.FromPolarCoordinates(1.0, 20.0 * Math.PI / 180.0);
@@ -228,20 +220,15 @@ public class PhaseDelayAttackTests
             ?? throw new InvalidOperationException("the reference found no legal candidate");
 
         OptimizerStage coarse = search.Trace.Single(stage => stage.Stage.StartsWith("joint 2-D coarse", StringComparison.Ordinal));
-        Assert.True(double.IsNaN(coarse.BestScore), "PD-2: the NaN candidate no longer becomes the incumbent");
+        Assert.True(double.IsFinite(coarse.BestScore), "a non-finite score must never become the incumbent");
+        Assert.True(double.IsFinite(search.Best!.Score));
+        Assert.True(double.IsFinite(search.ScoreBefore) && double.IsFinite(search.ScoreAfter));
 
-        Assert.Equal(0.5, search.Best!.Setting.GainDb, 9);
-        Assert.Equal(25.0, search.Best.Setting.PhaseDegrees, 9);
-        Assert.Equal(38.7272, search.Best.Score, 3);
-        Assert.Equal(7.7526, search.Best.Summary.MeanStdDevDb, 3);
-        Assert.Equal(0.0, reference.Setting.GainDb, 9);
-        Assert.Equal(110.0, reference.Setting.PhaseDegrees, 9);
-        Assert.Equal(14.9047, reference.Score, 3);
-        Assert.Equal(1.7669, reference.Summary.MeanStdDevDb, 3);
-
-        // The defect, as a number. Flip this to <= 1e-9 after the fix.
-        Assert.True(search.Best.Score - reference.Score > 20.0,
-            $"PD-2: the NaN candidate cost {search.Best.Score - reference.Score:F4} score, expected > 20.0 in the buggy build");
+        Assert.True(search.Best.Score <= reference.Score + 1e-9,
+            $"PD-2: search {search.Best.Score:R} vs reference {reference.Score:R}");
+        // Measured: 13.7304 against the coarse reference 13.7360.
+        Assert.Equal(13.7304, search.Best.Score, 3);
+        Assert.True(search.Best.Score < 15.0, "the fixed search must not stall near the old 38.73 poisoned result");
     }
 
     /// <summary>Builds a 4-position, 3-bin (40/70/100 Hz) measurement from interleaved (re, im) tables.</summary>
