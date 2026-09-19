@@ -1,11 +1,16 @@
 namespace AudioOptimizer.Simulation;
 
+using System.Diagnostics;
+using System.Globalization;
+
 /// <summary>
 /// The Virtual Acoustic Lab's command line: it runs a scenario and prints the report, and it is the same code path the
 /// UI calls — no logic here beyond argument handling and console output.
 /// <code>
 /// dotnet run --project src/AudioOptimizer.Simulation -- --list
 /// dotnet run --project src/AudioOptimizer.Simulation -- --scenario dual-sub
+/// dotnet run --project src/AudioOptimizer.Simulation -- --regression quick
+/// dotnet run --project src/AudioOptimizer.Simulation -- --replay 20260928
 /// </code>
 /// </summary>
 public static class Program
@@ -25,6 +30,12 @@ public static class Program
             return 0;
         }
 
+        if (args.Contains("--regression"))
+            return RunRegression(args);
+
+        if (args.Contains("--replay"))
+            return RunReplay(args);
+
         string? id = Value(args, "--scenario") ?? args.FirstOrDefault(argument => !argument.StartsWith('-'));
         if (id is null)
         {
@@ -43,6 +54,57 @@ public static class Program
         return 0;
     }
 
+    /// <summary>
+    /// The randomized plan: 20 / 100 / 500 generated scenarios (plus any checked-in fixture), judged in parallel and
+    /// aggregated in plan order. Exit 0 only when every scenario passed.
+    /// </summary>
+    private static int RunRegression(string[] args)
+    {
+        string? value = Value(args, "--regression");
+        if (value is null || !Enum.TryParse(value, ignoreCase: true, out RegressionMode mode) || !Enum.IsDefined(mode))
+        {
+            Console.Error.WriteLine($"Unknown regression plan '{value ?? "<missing>"}'. Use --regression quick|standard|stress.");
+            return 1;
+        }
+
+        RegressionReport report = RegressionRunner.Run(mode);
+        Console.Write(report.Format());
+        Console.WriteLine($"Run wall clock: {report.RuntimeMilliseconds / 1000.0:F1} s, {Environment.ProcessorCount} logical cores");
+        return report.AllPassed ? 0 : 1;
+    }
+
+    /// <summary>One generated scenario, identified only by its seed — the reproduction path a failure line prints.</summary>
+    private static int RunReplay(string[] args)
+    {
+        string? value = Value(args, "--replay");
+        if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int seed))
+        {
+            Console.Error.WriteLine($"--replay needs a scenario seed (an integer); got '{value ?? "<missing>"}'.");
+            return 1;
+        }
+
+        RegressionScenario scenario;
+        try
+        {
+            scenario = RandomScenarioGenerator.Replay(seed);
+        }
+        catch (ArgumentOutOfRangeException exception)
+        {
+            Console.Error.WriteLine(exception.Message);
+            return 1;
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        ScenarioJudgement judgement = RegressionRunner.RunScenario(scenario);
+        stopwatch.Stop();
+
+        Console.WriteLine(scenario.Describe());
+        Console.WriteLine(judgement.Metrics.SummaryLine());
+        var report = new RegressionReport([judgement]) { RuntimeMilliseconds = stopwatch.Elapsed.TotalMilliseconds };
+        Console.Write(report.Format());
+        return judgement.Passed ? 0 : 1;
+    }
+
     private static string? Value(string[] args, string name)
     {
         int index = Array.IndexOf(args, name);
@@ -59,6 +121,8 @@ public static class Program
 
           --list                 print the scenarios
           --scenario <id>        run one of them, e.g. --scenario dual-sub
+          --regression <plan>    run the randomized regression lab: quick (20), standard (100), stress (500)
+          --replay <seed>        run one generated scenario by its seed, e.g. --replay 20260928
 
         No audio device is opened and no external tool is invoked.
         """;
