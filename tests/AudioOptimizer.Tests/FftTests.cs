@@ -93,4 +93,44 @@ public class FftTests
     {
         Assert.Empty(Fft.Convolve([], [1.0, 2.0]));
     }
+
+    [Fact]
+    public void Generated_sine_lands_with_the_theory_phase_in_its_bin()
+    {
+        // Real samples, not hand-built complex numbers. With the wrapper's unscaled forward DFT,
+        //   X[k] = Σ x[n]·e^(−j2πkn/N).
+        // Write the sine as sin θ = (e^(jθ) − e^(−jθ))/(2j) with θ = 2πk0n/N + φ0. The positive-frequency
+        // term telescopes: Σ e^(j(2πk0n/N + φ0))·e^(−j2πk0n/N) = e^(jφ0)·N, and 1/(2j) = (1/2)e^(−jπ/2), so
+        //   X[k0] = (N/2)·e^(j(φ0 − π/2))       → |X[k0]| = N/2, phase = φ0 − π/2,
+        // and the conjugate image is X[N−k0] = conj(X[k0]) = (N/2)·e^(−j(φ0 − π/2)).
+        // This is independent of the FFT implementation: it follows from the sine's Fourier coefficients alone.
+        const int n = 256, k0 = 16;
+        const double phi0 = 0.3;
+        var x = new double[n];
+        for (int i = 0; i < n; i++) x[i] = Math.Sin(2.0 * Math.PI * k0 * i / n + phi0);
+
+        var spectrum = Fft.Forward(x);
+        double positivePhase = phi0 - Math.PI / 2.0;
+
+        Assert.Equal(n / 2.0, ComplexMath.Magnitude(spectrum[k0]), 1e-9);
+        Assert.Equal(positivePhase, ComplexMath.Phase(spectrum[k0]), 1e-9);
+        Assert.Equal(-positivePhase, ComplexMath.Phase(spectrum[n - k0]), 1e-9);
+    }
+
+    [Fact]
+    public void Generated_cosine_lands_with_the_signal_phase_in_its_bin()
+    {
+        // cos θ = (e^(jθ) + e^(−jθ))/2, so the same telescoping sum gives X[k0] = (N/2)·e^(jφ0) directly —
+        // no −π/2 rotation, unlike the sine — and X[N−k0] = conj(X[k0]).
+        const int n = 256, k0 = 16;
+        const double phi0 = 0.3;
+        var x = new double[n];
+        for (int i = 0; i < n; i++) x[i] = Math.Cos(2.0 * Math.PI * k0 * i / n + phi0);
+
+        var spectrum = Fft.Forward(x);
+
+        Assert.Equal(n / 2.0, ComplexMath.Magnitude(spectrum[k0]), 1e-9);
+        Assert.Equal(phi0, ComplexMath.Phase(spectrum[k0]), 1e-9);
+        Assert.Equal(-phi0, ComplexMath.Phase(spectrum[n - k0]), 1e-9);
+    }
 }
