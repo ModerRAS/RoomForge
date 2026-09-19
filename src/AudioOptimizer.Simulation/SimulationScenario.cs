@@ -56,18 +56,17 @@ public static class SimulationScenarios
         [CentreMic]);
 
     /// <summary>
-    /// S2 — two subs, 27 microphones, no noise. A noiseless rig on purpose: what is under test is the complex sum, so
-    /// every dB of the result should come from the interference and none of it from a noise floor.
+    /// S2 — two subs, 27 microphones, a realistic noise floor. What is under test is the complex sum, so the floor is
+    /// the default −120 dBFS rather than zero: every dB of the result should come from the interference, and at that
+    /// floor the shipped dropout check has no silence to report.
     /// </summary>
     public static readonly SimulationScenario TwoSubSimple = new(
         "two-sub",
-        "S2 two subs, 27 microphones, no noise",
-        "Two subs at −3 dB and +90° relative to each other, measured at all 27 positions with the noise floor at "
-        + "zero: the A+B pass is the physical sum of the two, so gain, polarity and phase show up as interference. "
-        + "The noiseless capture is also the one case the shipped dropout check has an opinion about — with the floor "
-        + "at exactly zero its scan window overruns the sweep into digital-silence post-roll on the closest "
-        + "positions, which it reports as DropoutDetected; the deconvolved results are unaffected.",
-        SimulationConfig.Default with { ImageSourceOrder = 0, MicrophoneNoiseLevel = 0.0 },
+        "S2 two subs, 27 microphones",
+        "Two subs at −3 dB and +90° relative to each other, measured at all 27 positions with the default −120 dBFS "
+        + "noise floor: the A+B pass is the physical sum of the two, so gain, polarity and phase show up as interference, "
+        + "and the floor is low enough that the shipped quality checks have nothing to report.",
+        SimulationConfig.Default with { ImageSourceOrder = 0, MicrophoneNoiseFloorDb = -120.0 },
         [
             new VirtualSubwoofer(new Position(0.30, 0.30, 0.35)),
             new VirtualSubwoofer(new Position(3.00, 3.30, 0.35), GainDb: -3.0, PhaseDegrees: 90.0),

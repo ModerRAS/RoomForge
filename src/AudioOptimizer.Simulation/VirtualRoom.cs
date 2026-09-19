@@ -20,7 +20,8 @@ using AudioOptimizer.Dsp;
 /// two impulse responses summed in the time domain, never a magnitude or dB addition — and it is bit-for-bit the sum
 /// of the A and B captures with the noise floor switched off. The noise is added once per capture, at the microphone,
 /// after the gain (a microphone's self-noise does not scale with what is playing), and comes from a seeded generator,
-/// so the same configuration produces the same bytes.
+/// so the same configuration produces the same bytes. The microphone's own response and a capture clock error are
+/// deliberate corruptions of that same recording, applied before the noise, and neither ever reaches the ground truth.
 /// </para>
 /// </summary>
 public sealed class VirtualRoom
@@ -84,8 +85,9 @@ public sealed class VirtualRoom
     }
 
     /// <summary>
-    /// The microphone records the drive signal convolved with the configuration's impulse responses, with the
-    /// microphone's noise added across the whole capture.
+    /// The microphone records the drive signal convolved with the configuration's impulse responses, colored by the
+    /// microphone's response, rescaled by the capture clock's error, with the microphone's noise added across the whole
+    /// capture.
     /// <para>
     /// The convolution tail is cut at the end of the capture, which is what a finite capture does; the scenarios keep
     /// the ISM order and the post-roll far enough apart that the tail is inside the window. The noise seed is derived
@@ -129,8 +131,44 @@ public sealed class VirtualRoom
             for (int i = 0; i < copyLength; i++) recording[start + i] += Config.MicrophoneGain * convolved[i];
         }
 
+        recording = CaptureChain(recording);
         AddNoise(recording, noiseSeed);
         return recording;
+    }
+
+    /// <summary>
+    /// The microphone's own response colors the acoustic signal, and the capture side's clock error rescales its time
+    /// axis. Both are applied to the finished sum, before the self-noise (which is an electronic floor at the
+    /// microphone's output, not part of the sound), and both are exact no-ops at their defaults: the same array, the
+    /// same bytes, as if neither knob existed.
+    /// </summary>
+    private double[] CaptureChain(double[] recording)
+    {
+        recording = MicrophoneResponse.Apply(recording, Config.SampleRate, Config.MicrophoneProfile, Config.MicrophoneDeviationDb);
+        if (Config.ClockPpm != 0.0) recording = Resample(recording, Config.ClockPpm);
+        return recording;
+    }
+
+    /// <summary>
+    /// The capture clock's error as a time-axis rescale: sample n is read at n·(1 + ppm·1e-6), linearly interpolated
+    /// with the array ends clamped. A positive PPM means the capture clock runs fast, so the same sound lands earlier.
+    /// Never called for 0 ppm.
+    /// </summary>
+    private static double[] Resample(double[] samples, double clockPpm)
+    {
+        double stretch = 1.0 + (clockPpm * 1e-6);
+        var resampled = new double[samples.Length];
+        for (int n = 0; n < samples.Length; n++)
+        {
+            double position = n * stretch;
+            int index = (int)Math.Floor(position);
+            double fraction = position - index;
+            double a = samples[Math.Clamp(index, 0, samples.Length - 1)];
+            double b = samples[Math.Clamp(index + 1, 0, samples.Length - 1)];
+            resampled[n] = a + ((b - a) * fraction);
+        }
+
+        return resampled;
     }
 
     /// <summary>Which subs a configuration drives. The A+B pass drives both at once, which is the physical sum.</summary>

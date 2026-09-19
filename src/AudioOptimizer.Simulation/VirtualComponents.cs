@@ -63,9 +63,9 @@ public sealed record VirtualSubwoofer(
 }
 
 /// <summary>
-/// One virtual microphone. <see cref="ClockPpm"/> and <see cref="Calibration"/> are the seams for effects v1 does not
-/// model (sample-clock drift, and a microphone's own frequency response): they exist so a later version extends this
-/// type instead of changing every signature that carries it.
+/// One virtual microphone: where it stands and the two knobs a real one has. The rig-level modelling of both effects
+/// lives on <see cref="SimulationConfig"/> (<c>ClockPpm</c>, <c>MicrophoneProfile</c>, applied to every microphone);
+/// this record is the per-microphone form the rig would carry if the points ever needed to differ from each other.
 /// </summary>
 public sealed record VirtualMicrophone(
     Position Position,

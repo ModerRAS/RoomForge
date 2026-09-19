@@ -2,6 +2,7 @@ namespace AudioOptimizer.Simulation;
 
 using AudioOptimizer.Audio;
 using AudioOptimizer.Core;
+using AudioOptimizer.Dsp;
 
 /// <summary>
 /// The ONE place the Virtual Acoustic Lab's defaults live. Nothing else in this project carries a room dimension, a
@@ -51,6 +52,32 @@ public sealed record SimulationConfig
     /// <summary>Microphone self-noise RMS as a fraction of full scale. 0 is a noiseless rig; 1e-6 ≈ −120 dBFS.</summary>
     public double MicrophoneNoiseLevel { get; init; } = 1e-6;
 
+    /// <summary>
+    /// The same floor in dBFS, the unit a person states it in. Reading derives it from <see cref="MicrophoneNoiseLevel"/>
+    /// (0 reads as −∞, exact silence); writing stores the linear level, so both spellings are one physical knob, and
+    /// the default 1e-6 reads as −120 dBFS.
+    /// </summary>
+    public double MicrophoneNoiseFloorDb
+    {
+        get => MicrophoneNoiseLevel == 0.0 ? double.NegativeInfinity : ComplexMath.LinearToDb(MicrophoneNoiseLevel);
+        init => MicrophoneNoiseLevel = double.IsNegativeInfinity(value) ? 0.0 : ComplexMath.DbToLinear(value);
+    }
+
+    /// <summary>The microphone's own response shape; <see cref="MicrophoneResponseProfile.Perfect"/> is flat 0 dB.</summary>
+    public MicrophoneResponseProfile MicrophoneProfile { get; init; } = MicrophoneResponseProfile.Perfect;
+
+    /// <summary>
+    /// Signed peak deviation of the microphone's response, dB: the low-frequency tilt sits at +deviation at 20 Hz and
+    /// −deviation at 150 Hz, the high-frequency tilt is its mirror. 0 is flat, whatever the profile.
+    /// </summary>
+    public double MicrophoneDeviationDb { get; init; } = 0.0;
+
+    /// <summary>
+    /// Playback-versus-capture clock error in parts per million: the capture reads the recording's time axis at
+    /// 1 + ppm·1e-6. 0 is an exact no-op, so every capture without it is bit-identical to before this knob existed.
+    /// </summary>
+    public double ClockPpm { get; init; } = 0.0;
+
     /// <summary>Seed of the noise generator. Same seed and same measurement → the same recording bytes.</summary>
     public int NoiseSeed { get; init; } = 20260101;
 
@@ -88,6 +115,13 @@ public sealed record SimulationConfig
             throw new ArgumentOutOfRangeException(nameof(PlaybackGain), PlaybackGain, "Playback gain must be in (0, 1].");
         if (!(MicrophoneGain > 0)) throw new ArgumentOutOfRangeException(nameof(MicrophoneGain), MicrophoneGain, "Microphone gain must be > 0.");
         if (MicrophoneNoiseLevel < 0) throw new ArgumentOutOfRangeException(nameof(MicrophoneNoiseLevel), MicrophoneNoiseLevel, "Noise level must be >= 0.");
+        if (!double.IsFinite(ClockPpm) || Math.Abs(ClockPpm) > 500.0)
+            throw new ArgumentOutOfRangeException(nameof(ClockPpm), ClockPpm, "Clock error must be finite and within ±500 ppm.");
+        if (!double.IsFinite(MicrophoneDeviationDb) || Math.Abs(MicrophoneDeviationDb) > 6.0)
+            throw new ArgumentOutOfRangeException(nameof(MicrophoneDeviationDb), MicrophoneDeviationDb, "Microphone deviation must be finite and within ±6 dB.");
+        if (MicrophoneProfile == MicrophoneResponseProfile.Perfect && MicrophoneDeviationDb != 0.0)
+            throw new ArgumentOutOfRangeException(nameof(MicrophoneDeviationDb), MicrophoneDeviationDb,
+                "A perfect microphone is flat, so it cannot carry a deviation: pick a tilt profile or leave the deviation at 0.");
         BackendSettings.Validate();
     }
 }

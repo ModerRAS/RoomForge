@@ -27,7 +27,8 @@ public sealed record SimulationOutcome(
             + $"ISM order {Scenario.Config.ImageSourceOrder}, reflections {room.Reflections}");
         text.AppendLine($"  sweep {Scenario.Config.SweepStartHz}–{Scenario.Config.SweepEndHz} Hz over "
             + $"{Scenario.Config.SweepSeconds} s at {Scenario.Config.SampleRate} Hz; noise floor {Scenario.Config.MicrophoneNoiseLevel:E1}; "
-            + $"playback gain {Scenario.Config.PlaybackGain}");
+            + $"playback gain {Scenario.Config.PlaybackGain}; clock {Scenario.Config.ClockPpm:+0.0;-0.0;0.0} ppm; "
+            + $"microphone {Scenario.Config.MicrophoneProfile} {Scenario.Config.MicrophoneDeviationDb:+0.0;-0.0;0.0} dB");
         foreach (VirtualSubwoofer sub in Scenario.Subs)
             text.AppendLine($"  sub at {sub.Position}: {sub.GainDb:+0.0;-0.0;0.0} dB, polarity {sub.Polarity:+#;-#;+1}, "
                 + $"phase {sub.PhaseDegrees:0.0}°, delay {sub.DelaySeconds * 1000.0:0.0} ms");
