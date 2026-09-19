@@ -8,6 +8,12 @@ using AudioOptimizer.Optimization;
 /// mean, median, σ, min, max, range, P10 and P90 over the positions, and these are the means/extremes of those across
 /// the band. <see cref="StdDevDb"/> is the engine's own band σ (the mean of the per-frequency σ), not the σ of the
 /// per-frequency means — one definition of "spatial spread", used everywhere.
+/// <para>
+/// <see cref="P10Db"/> and <see cref="P90Db"/> are the extreme single-frequency P10/P90 across the band, so
+/// <see cref="P90P10Db"/> and <see cref="RangeDb"/> are worst-case envelopes, not the per-frequency means the
+/// objective minimises (<see cref="SpatialSummary.MeanP90P10Db"/>, <see cref="SpatialSummary.MeanRangeDb"/>).
+/// The two can move in opposite directions on the same data.
+/// </para>
 /// </summary>
 public sealed record BandSpatialStats(
     double MeanDb,

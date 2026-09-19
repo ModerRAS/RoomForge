@@ -53,7 +53,9 @@ public static class MicrophoneResponse
     /// profile or a zero deviation returns the SAME array, so every existing bit-identical path is untouched.
     /// <para>
     /// Applied as one real, even gain per FFT bin of the zero-padded capture, then truncated back to the capture length.
-    /// The response belongs to the microphone, so it colors the whole capture; the pre-roll is silence and stays silence.
+    /// The response belongs to the microphone, so it colors the whole capture. The zero-phase gain's acausal
+    /// pre-ring means the pre-roll is not exactly silent: a ±1 dB tilt leaves it at ~9.9e-6 RMS (≈ −79 dB
+    /// relative to the capture, noise off) and the impulse peak can move by one sample.
     /// </para>
     /// </summary>
     public static double[] Apply(double[] recording, int sampleRate, MicrophoneResponseProfile profile, double deviationDb)

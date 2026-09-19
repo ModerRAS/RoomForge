@@ -435,7 +435,7 @@ public class SimulationRegressionTests(ITestOutputHelper output)
             Assert.True(double.IsFinite(metrics.Before.StdDevDb));
             Assert.True(double.IsFinite(metrics.After.StdDevDb));
             Assert.InRange(metrics.PhysicalResidualRatio, 0.0, RegressionRunner.PhysicalResidualToleranceRatio);
-            Assert.Equal(metrics.MaxBoostLimitDb, RandomScenarioGenerator.OptimizerMaxBoostLimitDb);
+            Assert.Equal(RandomScenarioGenerator.OptimizerMaxBoostLimitDb, metrics.MaxBoostLimitDb);
             Assert.Equal(judgement.Scenario.Seed, metrics.Seed);
             Assert.Equal(judgement.Scenario.Index, metrics.Index);
         }

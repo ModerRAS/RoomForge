@@ -25,6 +25,19 @@ public sealed record SubwooferSetting(double GainDb, double PhaseRad, int Polari
     public SubwooferSetting Flipped => this with { Polarity = -Polarity };
 
     /// <summary>
+    /// The compiler-generated formatting prints every public property, including <see cref="Flipped"/>, which
+    /// builds another setting and prints that — recursion until the stack dies. Print the four stored knobs only.
+    /// </summary>
+    private bool PrintMembers(System.Text.StringBuilder builder)
+    {
+        builder.Append("GainDb = ").Append(GainDb)
+            .Append(", PhaseRad = ").Append(PhaseRad)
+            .Append(", Polarity = ").Append(Polarity)
+            .Append(", DelaySeconds = ").Append(DelaySeconds);
+        return true;
+    }
+
+    /// <summary>
     /// Snaps gain and phase onto the coarsest grid the hardware can actually hold. The search may refine
     /// more finely than this internally; this is the number that goes in the recommendation.
     /// </summary>
