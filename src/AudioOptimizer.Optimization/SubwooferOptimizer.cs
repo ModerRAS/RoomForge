@@ -211,6 +211,14 @@ public static class SubwooferOptimizer
                 recommended = ObjectiveFunction.WithinBoostLimit(fallback.MaxBoostVsBaselineDb, _options.MaxBoostLimitDb) ? fallback : null;
             }
 
+            // The report-grid step re-measures snapped candidates, so it can beat the round-capped incumbent: Best is
+            // the best LEGAL candidate actually found, including that step, and must never look worse than the
+            // recommendation it frames.
+            OptimizerCandidate? bestInsideLimit = legal is null ? null
+                : recommended is not null && IsBetter(recommended, legal, _options.ScoreTieEpsilonDb)
+                    ? recommended
+                    : legal;
+
             OptimizationVerdict verdict;
             SubwooferSetting? setting;
             SpatialSummary after;
@@ -280,7 +288,7 @@ public static class SubwooferOptimizer
             return new OptimizerResult(
                 verdict,
                 setting,
-                legal,
+                bestInsideLimit,
                 _baseline.Summary,
                 after,
                 _baseline.Terms,
@@ -346,8 +354,10 @@ public static class SubwooferOptimizer
         /// so it cannot be refreshed at a stale gain/phase: this stage is what makes the delay decision joint.
         /// Polarity stays discrete — the coarse joint sweep already searched it exhaustively.
         /// Iterated while strictly improving, like the 2-D refine, so the incumbent is monotone.
-        /// ponytail: 5×5×11 = 275 evaluations per round against the 2-D refine's 121; on the 27-point case that
-        /// is +~13% candidates for +0.07 dB composite (and +1.3-2.4 dB on the delay-coupled fixtures).
+        /// ponytail: 5×5×11 = 275 evaluations per round against the 2-D refine's 121. Measured: the 27-point S4
+        /// +90 deg case 2067 -> 2892 candidates (+40%) for +0.069 composite; the default-S4 27-point fixture
+        /// +139% (auditor). The ≤8-round cap can bind, and the report-grid step can then find a legal setting
+        /// better than the capped incumbent — BuildResult reports the better one as Best.
         /// </summary>
         private void DelayJointRefine()
         {

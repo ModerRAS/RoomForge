@@ -271,13 +271,26 @@ public sealed class OptimizerPanelViewModel : ObservableObject
             return;
         }
 
+        DualSubMeasurement measurement = _measurement;
+
         IsBusy = true;
         Status = "Searching…";
         try
         {
-            OptimizerOptions options = BuildOptions();
-            OptimizerResult result = await Task.Run(() => SubwooferOptimizer.Search(_measurement, options)).ConfigureAwait(true);
+            OptimizerOptions requested = BuildOptions();
+
+            // The user-facing mode is ProductSafety: the effective limit is min(requested, 3 dB). The panel's closed
+            // set still offers 6 dB as a request, so a capped request is stated below rather than silently rewritten.
+            OptimizerOptions options = BoostPolicy.ModeOptions(requested, OptimizerOperatingMode.ProductSafety);
+            OptimizerResult result = await Task.Run(() => SubwooferOptimizer.Search(measurement, options)).ConfigureAwait(true);
             Apply(result);
+
+            // In-product contract check: the returned recommendation is re-measured and compared with the ceiling.
+            BoostContractReport contract = BoostPolicy.Verify(measurement, result, OptimizerOperatingMode.ProductSafety);
+            if (contract.Violated || !contract.ReportedValueDescribesFinalRecommendation)
+                Status += " " + contract.Status;
+            else if (options.MaxBoostLimitDb < requested.MaxBoostLimitDb)
+                Status += $" Product-safety mode enforced {F(options.MaxBoostLimitDb)} dB (requested {F(requested.MaxBoostLimitDb)} dB).";
         }
         catch (Exception exception)
         {
