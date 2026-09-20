@@ -106,10 +106,14 @@ public class MeasurementRobustnessAttackTests(ITestOutputHelper output)
             + $", canonical measured boost {declinedCanonBoost:F3} dB, truth outcome {declinedOutcome:F3}");
         output.WriteLine($"canonical setting's TRUTH score — seed 20260101 {appliedTruth:F9}, seed 20260103 {declinedTruth:F9}");
 
-        // The applied realization: the 2.0 ms alignment is legal and returned.
+        // The applied realization: the alignment is legal and returned. The delay-joint refine improves on the
+        // canonical 2.0 ms node: it returns 2.6 ms, whose truth score is 26.848 against the canonical
+        // setting's 29.289 — the canonical node stays legal (checked below) but is no longer the winner.
         Assert.Equal(OptimizationVerdict.Improved, applied.Result.Verdict);
         Assert.NotNull(applied.Result.Recommended);
-        Assert.Equal(2.0, applied.Result.Recommended!.DelaySeconds * 1000.0, 9);
+        Assert.Equal(2.6, applied.Result.Recommended!.DelaySeconds * 1000.0, 9);
+        Assert.True(appliedOutcome < appliedTruth,
+            $"the recommendation ({appliedOutcome:F3}) must beat the canonical setting ({appliedTruth:F3}) on the truth");
         Assert.True(appliedCanonBoost <= 30.0, $"the applied realization's canonical boost was {appliedCanonBoost:F3} dB");
 
         // The declined realization: the SAME setting was measured as over the limit, so the search returns no change.

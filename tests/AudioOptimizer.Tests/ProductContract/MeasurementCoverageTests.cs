@@ -98,8 +98,9 @@ public class MeasurementCoverageTests
         // The subset's own measurement is satisfied: its recommendation is legal where it was measured.
         Assert.True(subsetBoostOnSubset <= 30.0 + BoostPolicy.BoostEpsilonDb, $"subset recommendation spent {subsetBoostOnSubset:F3} dB on its own subset");
 
-        // The full-field answer is the canonical 2.0 ms alignment, legal on the field it was measured on.
-        Assert.Equal(LabFixtures.CanonicalDelay, full.Recommended);
+        // The full-field answer is legal on the field it was measured on. With the delay-joint refine it is
+        // (−1.1 dB, 12.0°, +1, 2.70 ms), not the canonical 2.0 ms node: the canonical node stays legal but is
+        // no longer the best the search can find, so legality — not the old fixture constant — is the precondition.
         Assert.True(fullBoostOnFull <= 30.0 + BoostPolicy.BoostEpsilonDb, $"full recommendation spent {fullBoostOnFull:F3} dB on the full field");
 
         // The subset answer is a different setting, and on the full field it breaks the same 30 dB limit the
