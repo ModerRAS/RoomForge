@@ -27,7 +27,8 @@ public sealed record OptimizerCandidate(
 
 /// <summary>
 /// What the boost limit did during the search, as data rather than a log line, plus the boost actually
-/// achieved at the returned setting (never only a percentage or a claim). A constraint that filtered most of
+/// achieved at the FINAL returned setting — the recommendation the hardware will hold, never the best legal
+/// candidate the search visited, and never only a percentage or a claim. A constraint that filtered most of
 /// the search and one that never fired are completely different outcomes: <see cref="Binding"/> means the
 /// highest-scoring setting found while ignoring the limit was itself rejected, i.e. the room would have wanted
 /// more boost than allowed. <see cref="LeastAchievedBoostDb"/> is the smallest boost any candidate achieved —
@@ -80,4 +81,20 @@ public sealed record OptimizerResult(
     IReadOnlyList<OptimizerStage> Trace,
     TargetCurveError? TargetBefore,
     TargetCurveError? TargetAfter,
-    OptimizerOptions Options);
+    OptimizerOptions Options)
+{
+    /// <summary>
+    /// The best candidate found ignoring the boost limit — the theoretical optimum, beside <see cref="Best"/>
+    /// (the best candidate inside the limit) and <see cref="Recommended"/> (the final report-grid setting the
+    /// hardware will hold). Three roles, three values: the limit and the report grid can make all three differ.
+    /// </summary>
+    public OptimizerCandidate? TheoreticalBest { get; init; }
+
+    /// <summary>
+    /// What the recommendation's spatial promise covers: only the measured positions, the whole planned session, or
+    /// the whole declared region. A partial statement carries the required user-facing warning — see
+    /// <see cref="MeasurementCoverage.MeasuredRegionOnlyWarning"/> — because nothing outside the measured positions
+    /// is known and nothing is extrapolated.
+    /// </summary>
+    public MeasurementCoverage? Coverage { get; init; }
+}

@@ -69,6 +69,12 @@ public sealed record RegressionReport(IReadOnlyList<ScenarioJudgement> Scenarios
 
     public double P90ImprovementDb => SpatialMetrics.PercentileNearestRank([.. Scenarios.Select(judgement => judgement.Metrics.ImprovementDb)], 90.0);
 
+    /// <summary>
+    /// The explicit split of the run: total, actionable vs near-optimal, and what each run actually did. The pass
+    /// count alone is not the report — a run of 90 no-ops and 10 improvements is a different product fact.
+    /// </summary>
+    public ClassificationReport Classification => ScenarioClassifier.ClassifyAll(Scenarios);
+
     /// <summary>The compact summary block: counts, the improvement distribution, and the dimensions broken down.</summary>
     public string Format()
     {
@@ -91,6 +97,11 @@ public sealed record RegressionReport(IReadOnlyList<ScenarioJudgement> Scenarios
         text.AppendLine($"Worst regression:         {worstLine}");
         text.AppendLine($"Optimizable rooms:        {Scenarios.Count(judgement => judgement.Optimizable)} (Before σ > {RegressionRunner.NearOptimalSigmaDb:F2} dB)");
         text.AppendLine($"Near-optimal rooms:       {Scenarios.Count(judgement => !judgement.Optimizable)}");
+
+        ClassificationReport classification = Classification;
+        text.AppendLine($"Classified:               {classification.Improved} improved, {classification.Unchanged} unchanged, "
+            + $"{classification.NearOptimalNoOp} near-optimal no-ops, {classification.Regressed} regressed, "
+            + $"{classification.ConstraintViolations} contract violations, {classification.HardFailures} hard failures");
 
         text.AppendLine("By draw family:");
         foreach (RegressionAlignmentFamily family in Enum.GetValues<RegressionAlignmentFamily>())

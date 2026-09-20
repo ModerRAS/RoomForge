@@ -272,7 +272,8 @@ public sealed class SimulationPanelViewModel : ObservableObject
         return $"{result.Verdict}; {recommendation}; spatial σ {F(result.Before.MeanStdDevDb)} → {F(result.After.MeanStdDevDb)} dB; "
             + $"boost {F(result.Constraint.MaxAchievedBoostDb ?? 0.0)} dB of {F(result.Constraint.MaxBoostLimitDb)} dB allowed"
             + (result.Constraint.Binding ? " (the limit bound the search)" : " (the limit did not bind)")
-            + $"; {result.Constraint.CandidatesRejected} of {result.Constraint.CandidatesEvaluated} candidates rejected";
+            + $"; {result.Constraint.CandidatesRejected} of {result.Constraint.CandidatesEvaluated} candidates rejected"
+            + (result.Coverage is { } coverage ? $"; {coverage.WarningText}" : string.Empty);
     }
 
     /// <summary>What the scenario knows and the optimizer was never told.</summary>

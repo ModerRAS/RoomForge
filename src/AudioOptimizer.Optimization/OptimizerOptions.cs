@@ -25,6 +25,11 @@ public sealed record OptimizerOptions
     public double ReportGainStepDb { get; init; } = 0.1;
     public double ReportPhaseStepDegrees { get; init; } = 1.0;
 
+    // Coverage statement inputs. Product knowledge the search never reads: how many positions the session planned,
+    // and how many the declared listening region has. Used only by MeasurementCoverage on the result.
+    public int? SessionPointCount { get; init; }
+    public int DeclaredRegionPointCount { get; init; }
+
     // Delay is a proportionally-phased parameter (exp(−j2πfΔt)) and is off unless asked for.
     public bool IncludeDelay { get; init; }
     public double DelayMaxMilliseconds { get; init; } = 10.0;
@@ -61,6 +66,8 @@ public sealed record OptimizerOptions
             throw new ArgumentOutOfRangeException(nameof(DelayStepMilliseconds), DelayStepMilliseconds, "A delay search needs a positive step and a non-negative ceiling.");
         if (!double.IsFinite(MaxBoostLimitDb)) throw new ArgumentOutOfRangeException(nameof(MaxBoostLimitDb), MaxBoostLimitDb, "The boost limit must be finite.");
         if (MinimumScoreImprovementDb < 0) throw new ArgumentOutOfRangeException(nameof(MinimumScoreImprovementDb), MinimumScoreImprovementDb, "The improvement threshold must be >= 0 dB.");
+        if (SessionPointCount is <= 0) throw new ArgumentOutOfRangeException(nameof(SessionPointCount), SessionPointCount, "A session size is either null (unknown) or a positive count.");
+        if (DeclaredRegionPointCount < 0) throw new ArgumentOutOfRangeException(nameof(DeclaredRegionPointCount), DeclaredRegionPointCount, "The declared region size cannot be negative.");
         Weights.Validate();
     }
 }

@@ -198,14 +198,6 @@ public static class SubwooferOptimizer
         private OptimizerResult BuildResult()
         {
             OptimizerCandidate? legal = _bestLegal;
-            var constraint = new ConstraintReport(
-                _options.MaxBoostLimitDb,
-                _evaluated,
-                _rejected,
-                // Binding = the constraint changed the outcome: the best setting found ignoring the limit was itself rejected.
-                _rejected > 0 && !ObjectiveFunction.WithinBoostLimit(_bestAny!.MaxBoostVsBaselineDb, _options.MaxBoostLimitDb),
-                legal?.MaxBoostVsBaselineDb,
-                double.IsPositiveInfinity(_leastBoost) ? 0.0 : _leastBoost);
 
             // The recommendation must be legal (the safety promise) and holdable (the report grid). Snapping
             // can move the achieved boost by a fraction of a step, so the snapped setting is re-measured and
@@ -224,10 +216,16 @@ public static class SubwooferOptimizer
             ObjectiveTerms termsAfter;
             double scoreAfter;
 
+            // The achieved boost the result reports is the FINAL recommendation's, not the best legal candidate's:
+            // the recommendation is snapped to the report grid, so the two settings can differ and the number a
+            // user reads must describe the setting the hardware will actually hold (L10).
+            OptimizerCandidate? finalCandidate;
+
             if (recommended is null)
             {
                 verdict = OptimizationVerdict.NoSettingWithinBoostLimit;
                 setting = null;
+                finalCandidate = null;
                 after = _baseline.Summary;
                 termsAfter = _baseline.Terms;
                 scoreAfter = _baseline.Score;
@@ -237,6 +235,7 @@ public static class SubwooferOptimizer
                 // Do not recommend a setting that does nothing: keep the measured setting and say why.
                 verdict = OptimizationVerdict.NegligibleImprovement;
                 setting = SubwooferSetting.Baseline;
+                finalCandidate = _baseline;
                 after = _baseline.Summary;
                 termsAfter = _baseline.Terms;
                 scoreAfter = _baseline.Score;
@@ -245,10 +244,20 @@ public static class SubwooferOptimizer
             {
                 verdict = OptimizationVerdict.Improved;
                 setting = recommended.Setting;
+                finalCandidate = recommended;
                 after = recommended.Summary;
                 termsAfter = recommended.Terms;
                 scoreAfter = recommended.Score;
             }
+
+            var constraint = new ConstraintReport(
+                _options.MaxBoostLimitDb,
+                _evaluated,
+                _rejected,
+                // Binding = the constraint changed the outcome: the best setting found ignoring the limit was itself rejected.
+                _rejected > 0 && !ObjectiveFunction.WithinBoostLimit(_bestAny!.MaxBoostVsBaselineDb, _options.MaxBoostLimitDb),
+                finalCandidate?.MaxBoostVsBaselineDb,
+                double.IsPositiveInfinity(_leastBoost) ? 0.0 : _leastBoost);
 
             // Diagnosis is about what these parameters could achieve at best inside the limit.
             OptimizerCandidate ceiling = legal ?? _baseline;
@@ -283,7 +292,11 @@ public static class SubwooferOptimizer
                 _trace,
                 target is null ? null : TargetCurve.Deviation(_baseline.Summary, target),
                 target is null ? null : TargetCurve.Deviation(after, target),
-                _options);
+                _options)
+            {
+                TheoreticalBest = _bestAny,
+                Coverage = MeasurementCoverage.Classify(_measurement.A.Count, _options.SessionPointCount, _options.DeclaredRegionPointCount),
+            };
         }
 
         /// <summary>Mean change in the spatial mean level across the band: the trade the score is blind to.</summary>

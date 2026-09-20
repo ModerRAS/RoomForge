@@ -352,7 +352,8 @@ public sealed class OptimizerPanelViewModel : ObservableObject
                 $"{F(row.FrequencyHz)} Hz: {F(row.BeforeStdDevDb)} → {F(row.AfterStdDevDb)} dB spread "
                 + $"({F(row.ImprovementDb)} dB){(row.PositionDominated ? " — dominated by one or two positions" : string.Empty)}")];
 
-        Status = $"Search complete: {constraint.CandidatesEvaluated} candidates, {constraint.CandidatesRejected} rejected.";
+        Status = $"Search complete: {constraint.CandidatesEvaluated} candidates, {constraint.CandidatesRejected} rejected."
+            + (result.Coverage is { } coverage ? $" {coverage.WarningText}" : string.Empty);
     }
 
     private static IReadOnlyList<PositionResponse> Measured(MeasurementSession session, SubMode mode)
