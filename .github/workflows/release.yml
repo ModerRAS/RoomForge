@@ -38,32 +38,37 @@ jobs:
             VERSION="${GITHUB_REF_NAME}"
           fi
           case "$VERSION" in v*) ;; *) VERSION="v$VERSION" ;; esac
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "NUMBER=${VERSION#v}" >> "$GITHUB_ENV"
+          # NOT named VERSION/NUMBER: MSBuild treats environment variables as properties, so a `VERSION`
+          # env var becomes $(Version) — "v0.1.0" is not a valid version string and restore fails with MSB4181.
+          echo "RELEASE_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "RELEASE_NUMBER=${VERSION#v}" >> "$GITHUB_ENV"
 
       # A release is gated on the same suite CI runs: no green tests, no artifacts.
+      - name: Build
+        run: dotnet build AudioOptimizer.sln -c Release --nologo
+
       - name: Full unit suite
-        run: dotnet test AudioOptimizer.sln -c Release --nologo
+        run: dotnet test AudioOptimizer.sln -c Release --no-build --nologo
 
       - name: Publish RoomForge (UI, win-x64)
-        run: dotnet publish src/AudioOptimizer.UI -c Release -r win-x64 --self-contained true -p:Version=${{ env.NUMBER }} -o publish/roomforge
+        run: dotnet publish src/AudioOptimizer.UI -c Release -r win-x64 --self-contained true -p:Version=${{ env.RELEASE_NUMBER }} -o publish/roomforge
 
       - name: Publish RoomForge Simulation CLI (win-x64)
-        run: dotnet publish src/AudioOptimizer.Simulation -c Release -r win-x64 --self-contained true -p:Version=${{ env.NUMBER }} -o publish/roomforge-simulation
+        run: dotnet publish src/AudioOptimizer.Simulation -c Release -r win-x64 --self-contained true -p:Version=${{ env.RELEASE_NUMBER }} -o publish/roomforge-simulation
 
       - name: Package
         shell: pwsh
         run: |
-          Compress-Archive -Path publish/roomforge/* -DestinationPath "RoomForge-${{ env.VERSION }}-win-x64.zip"
-          Compress-Archive -Path publish/roomforge-simulation/* -DestinationPath "RoomForge.Simulation-${{ env.VERSION }}-win-x64.zip"
+          Compress-Archive -Path publish/roomforge/* -DestinationPath "RoomForge-${{ env.RELEASE_VERSION }}-win-x64.zip"
+          Compress-Archive -Path publish/roomforge-simulation/* -DestinationPath "RoomForge.Simulation-${{ env.RELEASE_VERSION }}-win-x64.zip"
 
       - name: Create GitHub release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$VERSION" \
-            "RoomForge-$VERSION-win-x64.zip" \
-            "RoomForge.Simulation-$VERSION-win-x64.zip" \
-            --title "RoomForge $VERSION" \
+          gh release create "$RELEASE_VERSION" \
+            "RoomForge-$RELEASE_VERSION-win-x64.zip" \
+            "RoomForge.Simulation-$RELEASE_VERSION-win-x64.zip" \
+            --title "RoomForge $RELEASE_VERSION" \
             --generate-notes
