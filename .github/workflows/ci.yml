@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: Build and test (Release)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+      - name: Build
+        run: dotnet build AudioOptimizer.sln -c Release --nologo
+      - name: Full unit suite
+        run: dotnet test AudioOptimizer.sln -c Release --no-build --nologo
+
+  regression-quick:
+    name: Randomized optimizer regression (quick)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+      # 20 deterministic scenarios (master seed 20260919), exit 1 on any hard failure,
+      # regression or contract violation. Slow modes stay manual: --regression standard|stress.
+      - name: Run quick regression plan
+        run: dotnet run --project src/AudioOptimizer.Simulation -c Release -- --regression quick
