@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Description>Extension track: speaker roles, excess-phase calibration, and support FIR design. Does not replace the dual-sub optimizer.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AudioOptimizer.Core\AudioOptimizer.Core.csproj" />
+    <ProjectReference Include="..\AudioOptimizer.Dsp\AudioOptimizer.Dsp.csproj" />
+  </ItemGroup>
+
+</Project>
