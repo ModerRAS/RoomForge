@@ -133,9 +133,11 @@ public sealed class ProjectLoadViewModel : ObservableObject
 
     public string StatusLine => IsLoaded
         ? UiText.Format("Project.StatusLine", SlotCount, DoneCount, InvalidCount, SkippedCount, PendingCount)
-        : Problem == ProjectLoadProblem.ManifestMissing
+        : string.IsNullOrWhiteSpace(ProjectDirectory)
             ? UiText.Get("Project.PickFirst")
-            : UiText.Format("Project.NotLoaded", ProblemText);
+            : Problem is ProjectLoadProblem.ManifestMissing or ProjectLoadProblem.DirectoryMissing
+                ? UiText.Get("Project.ReadyToStart")
+                : UiText.Format("Project.NotLoaded", ProblemText);
 
     private string ProblemText => !UiText.IsChinese
         ? Problem.ToString()
@@ -150,7 +152,8 @@ public sealed class ProjectLoadViewModel : ObservableObject
             _ => Problem.ToString(),
         };
 
-    public bool ShowAffected => AffectedPaths.Count > 0;
+    public bool ShowAffected => AffectedPaths.Count > 0
+        && Problem is not (ProjectLoadProblem.ManifestMissing or ProjectLoadProblem.DirectoryMissing);
 
     public string AffectedPathSummary => AffectedPaths.Count == 0
         ? UiText.Get("Project.NoMissing")
@@ -173,7 +176,9 @@ public sealed class ProjectLoadViewModel : ObservableObject
         if (result.Manifest is not { } manifest)
         {
             Problem = result.Problem;
-            Message = result.Message;
+            Message = result.Problem is ProjectLoadProblem.ManifestMissing or ProjectLoadProblem.DirectoryMissing
+                ? string.Empty
+                : result.Message;
             IsLoaded = false;
             LoadedManifest = null;
             Slots = [];
@@ -202,7 +207,7 @@ public sealed class ProjectLoadViewModel : ObservableObject
         }
 
         Problem = result.Problem;
-        Message = result.Message;
+        Message = UiText.Format("Project.Opened", ProjectDirectory);
         IsLoaded = true;
         LoadedManifest = manifest;
         ProjectId = string.IsNullOrEmpty(manifest.ProjectId) ? "(v1 project: no id)" : manifest.ProjectId;

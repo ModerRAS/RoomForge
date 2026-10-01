@@ -1,5 +1,6 @@
 namespace AudioOptimizer.UI.Controls;
 
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -61,6 +62,26 @@ public partial class ShellView : UserControl
         // InputBindings live outside the visual tree and never inherit the DataContext.
         InputBindings.Add(new KeyBinding(Flow.MeasureCommand, Key.Space, ModifierKeys.None));
         InputBindings.Add(new KeyBinding(Flow.MeasureCommand, Key.Enter, ModifierKeys.None));
+
+        // The project page and the measure page each have a folder box. Keep them on the same path, and once a
+        // session exists, show its slots on the project page without asking the user to open the folder again.
+        Flow.PropertyChanged += (_, args) =>
+        {
+            if ((args.PropertyName is nameof(MeasurementFlowViewModel.ProjectDirectory) or null)
+                && Project.ProjectDirectory != Flow.ProjectDirectory)
+                Project.ProjectDirectory = Flow.ProjectDirectory;
+
+            if (args.PropertyName == nameof(MeasurementFlowViewModel.Session) && Flow.Session is not null)
+                ReloadProjectFromSession();
+        };
+        Project.PropertyChanged += (_, args) =>
+        {
+            if ((args.PropertyName is nameof(ProjectLoadViewModel.ProjectDirectory) or null)
+                && Flow.ProjectDirectory != Project.ProjectDirectory)
+                Flow.ProjectDirectory = Project.ProjectDirectory;
+        };
+        if (string.IsNullOrWhiteSpace(Project.ProjectDirectory))
+            Project.ProjectDirectory = Flow.ProjectDirectory;
     }
 
     public ProjectLoadViewModel Project { get; } = new();
@@ -211,6 +232,46 @@ public partial class ShellView : UserControl
     private void OnChineseClick(object sender, RoutedEventArgs e) => UiText.Use("zh");
 
     private void OnEnglishClick(object sender, RoutedEventArgs e) => UiText.Use("en");
+
+    private void OnBrowseProjectClick(object sender, RoutedEventArgs e)
+    {
+        if (TryPickFolder(Project.ProjectDirectory, out string folder))
+            Project.ProjectDirectory = folder;
+    }
+
+    private void OnBrowseMeasureClick(object sender, RoutedEventArgs e)
+    {
+        if (TryPickFolder(Flow.ProjectDirectory, out string folder))
+            Flow.ProjectDirectory = folder;
+    }
+
+    private static bool TryPickFolder(string current, out string folder)
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = UiText.Get("Measure.Browse"),
+            Multiselect = false,
+        };
+        if (!string.IsNullOrWhiteSpace(current) && Directory.Exists(current))
+            dialog.InitialDirectory = current;
+        bool? picked = dialog.ShowDialog();
+        folder = picked == true ? dialog.FolderName : string.Empty;
+        return picked == true;
+    }
+
+    private void ReloadProjectFromSession()
+    {
+        if (string.IsNullOrWhiteSpace(Flow.ProjectDirectory)) return;
+        Project.ProjectDirectory = Flow.ProjectDirectory;
+        try
+        {
+            Project.Load();
+        }
+        catch (Exception exception)
+        {
+            Project.ReportFailure(exception.Message);
+        }
+    }
 
     private void OnLoadClick(object sender, RoutedEventArgs e)
     {

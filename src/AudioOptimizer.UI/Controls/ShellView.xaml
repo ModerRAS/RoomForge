@@ -69,9 +69,14 @@
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="ProjectPathBox" Grid.Column="0"
                                      Text="{Binding ProjectDirectory, UpdateSourceTrigger=PropertyChanged}"/>
-                            <Button x:Name="LoadButton" Grid.Column="1" Margin="8,0,0,0"
-                                    Content="{Binding [Project.Load], Source={x:Static loc:UiText.Current}}"
-                                    Click="OnLoadClick"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                <Button x:Name="BrowseProjectButton" Margin="8,0,0,0" Style="{StaticResource SecondaryButton}"
+                                        Content="{Binding [Project.Browse], Source={x:Static loc:UiText.Current}}"
+                                        Click="OnBrowseProjectClick"/>
+                                <Button x:Name="LoadButton" Margin="8,0,0,0"
+                                        Content="{Binding [Project.Load], Source={x:Static loc:UiText.Current}}"
+                                        Click="OnLoadClick"/>
+                            </StackPanel>
                         </Grid>
 
                         <StackPanel Grid.Row="2" Margin="0,12,0,0">
@@ -145,6 +150,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <Grid x:Name="FlowPanel" Margin="4,12,4,4">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
@@ -243,9 +249,28 @@
                                 </StackPanel>
                             </StackPanel>
                             <TextBlock Margin="0,6,0,0" Foreground="#FF78716C" Text="{Binding GridLine}"/>
+                            <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" Foreground="#FF57534E"
+                                       Text="{Binding [Measure.Rounds], Source={x:Static loc:UiText.Current}}"/>
                         </StackPanel>
 
-                        <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,16,0,0">
+                        <Grid Grid.Row="5" Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Style="{StaticResource FieldLabel}"
+                                           Text="{Binding [Measure.Folder], Source={x:Static loc:UiText.Current}}"/>
+                                <TextBox x:Name="SaveFolderBox"
+                                         Text="{Binding ProjectDirectory, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <Button x:Name="BrowseFolderButton" Grid.Column="1" Style="{StaticResource SecondaryButton}"
+                                    VerticalAlignment="Bottom"
+                                    Content="{Binding [Measure.Browse], Source={x:Static loc:UiText.Current}}"
+                                    Click="OnBrowseMeasureClick"/>
+                        </Grid>
+
+                        <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,16,0,0">
                             <Button x:Name="StartSessionButton"
                                     Content="{Binding [Measure.Start], Source={x:Static loc:UiText.Current}}"
                                     Command="{Binding StartSessionCommand}"/>
@@ -260,7 +285,7 @@
                                     Command="{Binding AbortCommand}"/>
                         </StackPanel>
 
-                        <StackPanel Grid.Row="6" Margin="0,16,0,0">
+                        <StackPanel Grid.Row="7" Margin="0,16,0,0">
                             <TextBlock x:Name="PromptText" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"
                                        Foreground="#FF1C1917" Text="{Binding PromptText}"/>
                             <TextBlock x:Name="ProgressText" Margin="0,6,0,0" TextWrapping="Wrap" Foreground="#FF44403C"
@@ -269,7 +294,7 @@
                                        Text="{Binding FeedbackText}"/>
                         </StackPanel>
 
-                        <TextBlock x:Name="FlowStatusText" Grid.Row="7" Margin="0,10,0,0" TextWrapping="Wrap"
+                        <TextBlock x:Name="FlowStatusText" Grid.Row="8" Margin="0,10,0,0" TextWrapping="Wrap"
                                    Foreground="#FF1C1917" Text="{Binding Status}"/>
                     </Grid>
                 </ScrollViewer>

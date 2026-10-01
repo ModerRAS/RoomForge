@@ -49,7 +49,11 @@ public sealed class MeasurementFlowViewModel : ObservableObject
     private AudioDeviceInfo? _selectedOutput;
     private bool _devicesRead;
     private string _deviceMessage = UiText.Get("Flow.NoDeviceList");
-    private string _projectDirectory = string.Empty;
+    private string _projectDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) is { Length: > 0 } documents
+            ? documents
+            : Path.GetTempPath(),
+        "RoomForge");
     private double _startHz = 20.0;
     private double _endHz = 150.0;
     private double _durationSeconds = 1.0;
