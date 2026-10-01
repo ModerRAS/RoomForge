@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Description>Extension track: CamillaDSP YAML, FIR WAV, and fail-closed export validation.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AudioOptimizer.Art\AudioOptimizer.Art.csproj" />
+  </ItemGroup>
+
+</Project>
