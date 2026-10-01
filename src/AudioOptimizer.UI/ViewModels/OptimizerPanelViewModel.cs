@@ -1,6 +1,7 @@
 namespace AudioOptimizer.UI.ViewModels;
 
 using System.Globalization;
+using AudioOptimizer.UI.Localization;
 using AudioOptimizer.Core;
 using AudioOptimizer.Measurement;
 using AudioOptimizer.Optimization;
@@ -27,16 +28,16 @@ public sealed class OptimizerPanelViewModel : ObservableObject
     private double _weightPeakPenalty = ObjectiveWeights.Default.PeakPenalty;
     private double _weightNullPenalty = ObjectiveWeights.Default.NullPenalty;
     private bool _isBusy;
-    private string _status = "Open a project with A and B measured, then run the search.";
+    private string _status = UiText.Get("Opt.Idle");
     private string _verdictText = string.Empty;
     private string _recommendationText = string.Empty;
     private string _boostText = string.Empty;
     private string _bindingText = string.Empty;
     private IReadOnlyList<string> _diagnosisLines = [];
-    private IReadOnlyList<string> _causeLines = ["no structured cause reported"];
+    private IReadOnlyList<string> _causeLines = [UiText.Get("Opt.NoCause")];
     private OptimizerResult? _result;
     private DualSubMeasurement? _measurement;
-    private string _modelVerdictText = "The model check has not run.";
+    private string _modelVerdictText = UiText.Get("Opt.ModelIdle");
 
     public OptimizerPanelViewModel()
     {
@@ -58,9 +59,11 @@ public sealed class OptimizerPanelViewModel : ObservableObject
             // value the search sees are the same number.
             if (!AllowedMaxBoostDb.Contains(value))
             {
-                Status = $"Max boost is offered as {string.Join(", ", AllowedMaxBoostDb.Select(value => value.ToString("F0", CultureInfo.InvariantCulture)))} dB only; "
-                    + $"{value.ToString("F1", CultureInfo.InvariantCulture)} dB was refused and the limit stays "
-                    + $"{_maxBoostDb.ToString("F1", CultureInfo.InvariantCulture)} dB.";
+                Status = UiText.Format(
+                    "Opt.Refused",
+                    string.Join(", ", AllowedMaxBoostDb.Select(offered => offered.ToString("F0", CultureInfo.InvariantCulture))),
+                    value.ToString("F1", CultureInfo.InvariantCulture),
+                    _maxBoostDb.ToString("F1", CultureInfo.InvariantCulture));
                 return;
             }
 
@@ -176,7 +179,7 @@ public sealed class OptimizerPanelViewModel : ObservableObject
         if (flow.Session is not { } session)
         {
             _measurement = null;
-            Status = "Open a project with A and B measured, then run the search.";
+            Status = UiText.Get("Opt.Idle");
             Raise(nameof(CanRun));
             return;
         }
@@ -212,7 +215,7 @@ public sealed class OptimizerPanelViewModel : ObservableObject
         if (measurement is null || measurement.A.Count == 0 || measurement.B.Count == 0)
         {
             _measurement = null;
-            Status = "The search needs both A and B measured on the same positions.";
+            Status = UiText.Get("Opt.NeedPair");
             Raise(nameof(CanRun));
             return;
         }
@@ -220,9 +223,9 @@ public sealed class OptimizerPanelViewModel : ObservableObject
         measurement.Validate();
         Result = null;
         ModelVerdictText = measurement.AB is { Count: > 0 }
-            ? "The model check is ready to run against the measured A+B pass."
-            : "The model check needs a measured A+B pass as well as A and B.";
-        Status = $"{measurement.A.Count} position(s) ready; limit {_maxBoostDb.ToString("F0", CultureInfo.InvariantCulture)} dB.";
+            ? UiText.Get("Opt.ModelReady")
+            : UiText.Get("Opt.ModelNeed");
+        Status = UiText.Format("Opt.Ready", measurement.A.Count, _maxBoostDb.ToString("F0", CultureInfo.InvariantCulture));
         Raise(nameof(CanRun));
     }
 
@@ -235,7 +238,7 @@ public sealed class OptimizerPanelViewModel : ObservableObject
     {
         if (_measurement?.AB is not { Count: > 0 } realAb)
         {
-            ModelVerdictText = "The model check needs a measured A+B pass as well as A and B.";
+            ModelVerdictText = UiText.Get("Opt.ModelNeed");
             ShowCauses([]);
             return;
         }
@@ -244,16 +247,21 @@ public sealed class OptimizerPanelViewModel : ObservableObject
         {
             AbValidationResult result = AbValidation.Compare(_measurement, realAb, SubwooferSetting.Baseline);
             ModelVerdictText = result.Agrees
-                ? $"The model describes this rig: within {result.Options.MagnitudeErrorThresholdDb} dB and "
-                    + $"{result.Options.PhaseErrorThresholdDegrees}° at the compared band (verdict {result.Verdict})."
-                : $"The model does not describe this rig: verdict {result.Verdict}, band error "
-                    + $"{result.Band.MeanMagnitudeErrorDb:+0.00;-0.00;0.00} dB, spread {result.Band.MagnitudeErrorSpreadDb:0.00} dB. "
-                    + "Check the structured causes below before trusting a predicted optimum.";
+                ? UiText.Format(
+                    "Opt.ModelAgrees",
+                    result.Options.MagnitudeErrorThresholdDb,
+                    result.Options.PhaseErrorThresholdDegrees,
+                    result.Verdict)
+                : UiText.Format(
+                    "Opt.ModelDisagrees",
+                    result.Verdict,
+                    result.Band.MeanMagnitudeErrorDb.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture),
+                    result.Band.MagnitudeErrorSpreadDb.ToString("0.00", CultureInfo.InvariantCulture));
             ShowCauses(result.Checks);
         }
         catch (Exception exception)
         {
-            ModelVerdictText = $"The model check failed: {exception.GetType().Name}: {exception.Message}";
+            ModelVerdictText = UiText.Format("Opt.ModelFailed", exception.GetType().Name, exception.Message);
             ShowCauses([]);
         }
     }
@@ -267,14 +275,14 @@ public sealed class OptimizerPanelViewModel : ObservableObject
     {
         if (_measurement is null)
         {
-            Status = "The search needs both A and B measured on the same positions.";
+            Status = UiText.Get("Opt.NeedPair");
             return;
         }
 
         DualSubMeasurement measurement = _measurement;
 
         IsBusy = true;
-        Status = "Searching…";
+        Status = UiText.Get("Opt.Searching");
         try
         {
             OptimizerOptions requested = BuildOptions();
@@ -290,11 +298,11 @@ public sealed class OptimizerPanelViewModel : ObservableObject
             if (contract.Violated || !contract.ReportedValueDescribesFinalRecommendation)
                 Status += " " + contract.Status;
             else if (options.MaxBoostLimitDb < requested.MaxBoostLimitDb)
-                Status += $" Product-safety mode enforced {F(options.MaxBoostLimitDb)} dB (requested {F(requested.MaxBoostLimitDb)} dB).";
+                Status += UiText.Format("Opt.Safety", F(options.MaxBoostLimitDb), F(requested.MaxBoostLimitDb));
         }
         catch (Exception exception)
         {
-            Status = $"The search failed: {exception.GetType().Name}: {exception.Message}";
+            Status = UiText.Format("Opt.SearchFailed", exception.GetType().Name, exception.Message);
         }
         finally
         {
@@ -308,7 +316,7 @@ public sealed class OptimizerPanelViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(causes);
         CauseLines = causes.Count == 0
-            ? ["no structured cause reported"]
+            ? [UiText.Get("Opt.NoCause")]
             : [.. causes.Select(CauseText)];
     }
 
@@ -319,12 +327,12 @@ public sealed class OptimizerPanelViewModel : ObservableObject
     /// </summary>
     public static string CauseText(AbCheckKind cause) => cause switch
     {
-        AbCheckKind.Polarity => "polarity: the measured A+B looks inverted relative to the model — check the polarity of one sub",
-        AbCheckKind.Gain => "gain: the compared band is offset by a constant level — check the gain applied to each path",
-        AbCheckKind.PhaseSetting => "phase: a phase offset that is not a polarity flip — check the phase setting that was applied",
-        AbCheckKind.DeviceDsp => "device DSP: the error varies with frequency — check EQ, crossover or delay on one path",
-        AbCheckKind.MeasurementSync => "measurement sync: a material disagreement with none of the structured causes — check that A, B and A+B were captured in the same session",
-        _ => $"unrecognised cause ({cause}): the engine reported a cause this panel does not describe",
+        AbCheckKind.Polarity => UiText.Get("Opt.Cause.Polarity"),
+        AbCheckKind.Gain => UiText.Get("Opt.Cause.Gain"),
+        AbCheckKind.PhaseSetting => UiText.Get("Opt.Cause.Phase"),
+        AbCheckKind.DeviceDsp => UiText.Get("Opt.Cause.Dsp"),
+        AbCheckKind.MeasurementSync => UiText.Get("Opt.Cause.Sync"),
+        _ => UiText.Format("Opt.Cause.Unknown", cause),
     };
 
     public void ReportFailure(string message) => Status = message;
@@ -335,37 +343,50 @@ public sealed class OptimizerPanelViewModel : ObservableObject
         ConstraintReport constraint = result.Constraint;
         VerdictText = result.Verdict switch
         {
-            OptimizationVerdict.Improved => $"Improved: score {F(result.ScoreBefore)} → {F(result.ScoreAfter)} dB "
-                + $"({F(result.ScoreAfter - result.ScoreBefore)} dB); uniformity "
-                + $"{F(result.Before.MeanStdDevDb)} → {F(result.After.MeanStdDevDb)} dB standard deviation across positions.",
-            OptimizationVerdict.NegligibleImprovement => $"Not worth changing: the best legal setting improves the score by only "
-                + $"{F(result.ScoreAfter - result.ScoreBefore)} dB, below the {F(result.Options.MinimumScoreImprovementDb)} dB threshold.",
-            OptimizationVerdict.NoSettingWithinBoostLimit => "Not optimizable within the limit: every setting that improves uniformity needs more boost "
-                + $"than the {F(constraint.MaxBoostLimitDb)} dB allowed. The per-frequency rows below say where.",
-            _ => $"Verdict: {result.Verdict}.",
+            OptimizationVerdict.Improved => UiText.Format(
+                "Opt.Improved",
+                F(result.ScoreBefore),
+                F(result.ScoreAfter),
+                F(result.ScoreAfter - result.ScoreBefore),
+                F(result.Before.MeanStdDevDb),
+                F(result.After.MeanStdDevDb)),
+            OptimizationVerdict.NegligibleImprovement => UiText.Format(
+                "Opt.Negligible",
+                F(result.ScoreAfter - result.ScoreBefore),
+                F(result.Options.MinimumScoreImprovementDb)),
+            OptimizationVerdict.NoSettingWithinBoostLimit => UiText.Format("Opt.NoSetting", F(constraint.MaxBoostLimitDb)),
+            _ => UiText.Format("Opt.Verdict", result.Verdict),
         };
 
         RecommendationText = result.Recommended is { } setting
-            ? $"Recommended: gain {F(setting.GainDb)} dB, phase {F(setting.PhaseDegrees)}°, polarity {setting.Polarity:+#;-#;+1}, delay {F(setting.DelaySeconds * 1000.0)} ms"
-            : "Recommended: none — no legal setting is being proposed.";
+            ? UiText.Format(
+                "Opt.Recommended",
+                F(setting.GainDb),
+                F(setting.PhaseDegrees),
+                setting.Polarity.ToString("+#;-#;+1", CultureInfo.InvariantCulture),
+                F(setting.DelaySeconds * 1000.0))
+            : UiText.Get("Opt.RecommendedNone");
 
         // Two numbers, always: the limit is a request, the achieved boost is what the recommendation does.
         BoostText = constraint.MaxAchievedBoostDb is { } achieved
-            ? $"Requested limit {F(constraint.MaxBoostLimitDb)} dB; achieved boost {F(achieved)} dB "
-                + $"(the least any compared position gets is {F(constraint.LeastAchievedBoostDb)} dB)."
-            : $"Requested limit {F(constraint.MaxBoostLimitDb)} dB; no boost was achieved because no setting was proposed.";
+            ? UiText.Format("Opt.BoostAchieved", F(constraint.MaxBoostLimitDb), F(achieved), F(constraint.LeastAchievedBoostDb))
+            : UiText.Format("Opt.BoostNone", F(constraint.MaxBoostLimitDb));
 
         BindingText = constraint.Binding
-            ? $"The limit bound the search: {constraint.CandidatesRejected} of {constraint.CandidatesEvaluated} candidates were rejected as illegal."
-            : $"The limit did not bind: none of the {constraint.CandidatesEvaluated} candidates was rejected.";
+            ? UiText.Format("Opt.Bound", constraint.CandidatesRejected, constraint.CandidatesEvaluated)
+            : UiText.Format("Opt.Unbound", constraint.CandidatesEvaluated);
 
         DiagnosisLines = result.Diagnosis.Count == 0
-            ? ["no per-frequency diagnosis"]
-            : [.. result.Diagnosis.Select(row =>
-                $"{F(row.FrequencyHz)} Hz: {F(row.BeforeStdDevDb)} → {F(row.AfterStdDevDb)} dB spread "
-                + $"({F(row.ImprovementDb)} dB){(row.PositionDominated ? " — dominated by one or two positions" : string.Empty)}")];
+            ? [UiText.Get("Opt.NoDiagnosis")]
+            : [.. result.Diagnosis.Select(row => UiText.Format(
+                "Opt.Row",
+                F(row.FrequencyHz),
+                F(row.BeforeStdDevDb),
+                F(row.AfterStdDevDb),
+                F(row.ImprovementDb),
+                row.PositionDominated ? UiText.Get("Opt.Dominated") : string.Empty))];
 
-        Status = $"Search complete: {constraint.CandidatesEvaluated} candidates, {constraint.CandidatesRejected} rejected."
+        Status = UiText.Format("Opt.SearchDone", constraint.CandidatesEvaluated, constraint.CandidatesRejected)
             + (result.Coverage is { } coverage ? $" {coverage.WarningText}" : string.Empty);
     }
 

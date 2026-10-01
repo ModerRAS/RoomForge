@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.IO;
 using AudioOptimizer.Audio;
+using AudioOptimizer.UI.Localization;
 using AudioOptimizer.Core;
 using AudioOptimizer.IO;
 using AudioOptimizer.Measurement;
@@ -46,7 +47,8 @@ public sealed class MeasurementFlowViewModel : ObservableObject
     private IReadOnlyList<AudioDeviceInfo> _outputDevices = [];
     private AudioDeviceInfo? _selectedInput;
     private AudioDeviceInfo? _selectedOutput;
-    private string _deviceMessage = "No device list read yet — press Refresh devices.";
+    private bool _devicesRead;
+    private string _deviceMessage = UiText.Get("Flow.NoDeviceList");
     private string _projectDirectory = string.Empty;
     private double _startHz = 20.0;
     private double _endHz = 150.0;
@@ -63,7 +65,7 @@ public sealed class MeasurementFlowViewModel : ObservableObject
     private MeasurementSlot? _awaitingDecision;
     private bool _isBusy;
     private bool _isAborted;
-    private string _status = "No session open. Select devices and a project directory, then press Start / resume.";
+    private string _status = UiText.Get("Flow.NoSession");
 
     public MeasurementFlowViewModel(IAudioBackend backend)
     {
@@ -196,14 +198,18 @@ public sealed class MeasurementFlowViewModel : ObservableObject
     public MeasurementGrid Grid => MeasurementGrid.Create(WidthMetres, DepthMetres, HeightMetres, CountX, CountY, CountZ);
 
     /// <summary>Compact sweep display: a record's ToString is not something to put on a screen.</summary>
-    public string SweepText => string.Create(
-        CultureInfo.InvariantCulture,
-        $"{StartHz:0.##}–{EndHz:0.##} Hz, {DurationSeconds:0.##} s @ {SampleRate} Hz");
+    public string SweepText => UiText.IsChinese
+        ? string.Create(CultureInfo.InvariantCulture, $"{StartHz:0.##}–{EndHz:0.##} Hz，{DurationSeconds:0.##} 秒，采样率 {SampleRate}")
+        : string.Create(CultureInfo.InvariantCulture, $"{StartHz:0.##}–{EndHz:0.##} Hz, {DurationSeconds:0.##} s @ {SampleRate} Hz");
 
     /// <summary>Compact grid display: extents and the lattice, whose product is the point count.</summary>
-    public string GridText => string.Create(
-        CultureInfo.InvariantCulture,
-        $"{WidthMetres:0.##} × {DepthMetres:0.##} × {HeightMetres:0.##} m, {CountX} × {CountY} × {CountZ} = {Grid.PointCount} points");
+    public string GridText => UiText.IsChinese
+        ? string.Create(CultureInfo.InvariantCulture, $"{WidthMetres:0.##} × {DepthMetres:0.##} × {HeightMetres:0.##} 米，{CountX} × {CountY} × {CountZ}，共 {Grid.PointCount} 个点")
+        : string.Create(CultureInfo.InvariantCulture, $"{WidthMetres:0.##} × {DepthMetres:0.##} × {HeightMetres:0.##} m, {CountX} × {CountY} × {CountZ} = {Grid.PointCount} points");
+
+    public string SweepLine => UiText.Format("Measure.SweepLine", SweepText);
+
+    public string GridLine => UiText.Format("Measure.GridLine", GridText);
 
     public SweepSettings Sweep => new(StartHz, EndHz, DurationSeconds, SampleRate);
 
@@ -255,31 +261,42 @@ public sealed class MeasurementFlowViewModel : ObservableObject
     /// <summary>Done only: an Invalid point was measured and rejected, a Skipped one was never taken.</summary>
     public int MeasuredCount => _session?.Slots.Count(slot => slot.State == MeasurementSlotState.Done) ?? 0;
 
-    public string MeasuredText => $"{MeasuredCount} of {SlotCount} measured";
+    public string MeasuredText => UiText.Format("Flow.Measured", MeasuredCount, SlotCount);
 
-    public string CursorText => NextSlotPosition == 0 ? "no slot awaiting measurement" : $"{NextSlotPosition}/{SlotCount}";
+    public string CursorText => NextSlotPosition == 0 ? UiText.Get("Flow.NoSlot") : $"{NextSlotPosition}/{SlotCount}";
 
     /// <summary>The cursor's point within the grid's own point list — the denominator is PointCount, never a literal.</summary>
     public string PositionText
     {
         get
         {
-            if (CurrentSlot is not { } slot) return "no point awaiting measurement";
+            if (CurrentSlot is not { } slot) return UiText.Get("Flow.NoPoint");
             for (int index = 0; index < Grid.Points.Count; index++)
                 if (Grid.Points[index].Id == slot.Point.Id) return $"{index + 1}/{Grid.PointCount}";
-            return "no point awaiting measurement";
+            return UiText.Get("Flow.NoPoint");
         }
     }
 
-    public string ProgressText => $"next slot {CursorText} · grid position {PositionText} · {MeasuredText}";
+    public string ProgressText => _session is null
+        ? string.Empty
+        : CurrentSlot is null
+            ? MeasuredText
+            : UiText.Format("Flow.Progress", CursorText, PositionText, MeasuredText);
 
     /// <summary>§25: the grid indices AND the physical coordinates, both read from the point the grid produced.</summary>
-    public string PromptText => CurrentSlot is { } slot
-        ? string.Create(
-            CultureInfo.InvariantCulture,
-            $"Mode {slot.Mode} · Grid X {slot.Point.GridX} / Grid Y {slot.Point.GridY} / Grid Z {slot.Point.GridZ} · "
-            + $"X {slot.Point.X:0.00} m / Y {slot.Point.Y:0.00} m / Z {slot.Point.Z:0.00} m")
-        : "Nothing left to measure.";
+    public string PromptText => _session is null
+        ? string.Empty
+        : CurrentSlot is { } slot
+        ? UiText.Format(
+            "Flow.Prompt",
+            slot.Mode,
+            slot.Point.GridX,
+            slot.Point.GridY,
+            slot.Point.GridZ,
+            slot.Point.X.ToString("0.00", CultureInfo.InvariantCulture),
+            slot.Point.Y.ToString("0.00", CultureInfo.InvariantCulture),
+            slot.Point.Z.ToString("0.00", CultureInfo.InvariantCulture))
+        : UiText.Get("Flow.NothingLeft");
 
     /// <summary>Quality feedback: the named reasons the last measurement was rejected for, never a generic failure.</summary>
     /// <summary>
@@ -289,9 +306,8 @@ public sealed class MeasurementFlowViewModel : ObservableObject
     /// </summary>
     public string FeedbackText => _awaitingDecision is { } slot
         ? slot.Reasons.Contains(QualityIssue.AbortedInFlight)
-            ? $"Aborted by you at grid position {PositionText} ({slot.Id}) — re-measure or skip it. "
-              + $"Recorded reasons: {Reasons(slot)}."
-            : $"Rejected at grid position {PositionText} ({slot.Id}): {Reasons(slot)}. Retry, skip or abort."
+            ? UiText.Format("Flow.FeedbackAbort", PositionText, slot.Id, Reasons(slot))
+            : UiText.Format("Flow.FeedbackReject", PositionText, slot.Id, Reasons(slot))
         : string.Empty;
 
     public bool HasFeedback => _awaitingDecision is not null;
@@ -299,6 +315,27 @@ public sealed class MeasurementFlowViewModel : ObservableObject
     public bool CanMeasure => !IsBusy && _session is not null && _runner is not null && CurrentSlot is not null;
 
     public bool CanSkip => !IsBusy && _session is not null && _awaitingDecision is not null;
+
+    protected override void OnCultureChanged()
+    {
+        if (_session is null)
+            _status = UiText.Get("Flow.NoSession");
+        if (_devicesRead)
+            DescribeDevices();
+        else
+            _deviceMessage = UiText.Get("Flow.NoDeviceList");
+    }
+
+    private void DescribeDevices()
+    {
+        DeviceMessage = (InputDevices.Count, OutputDevices.Count) switch
+        {
+            (0, 0) => UiText.Get("Flow.NoDevices"),
+            (0, _) => UiText.Format("Flow.NoInputs", OutputDevices.Count),
+            (_, 0) => UiText.Format("Flow.NoOutputs", InputDevices.Count),
+            _ => UiText.Format("Flow.DeviceCounts", InputDevices.Count, OutputDevices.Count),
+        };
+    }
 
     /// <summary>Reads the device lists. An empty list is a normal answer, not an exception: it renders as a list
     /// with nothing in it plus a message saying what is missing.</summary>
@@ -309,15 +346,10 @@ public sealed class MeasurementFlowViewModel : ObservableObject
             AudioDeviceLists devices = _backend.EnumerateDevices();
             InputDevices = devices.Inputs;
             OutputDevices = devices.Outputs;
+            _devicesRead = true;
             if (SelectedInput is null) SelectedInput = InputDevices.FirstOrDefault();
             if (SelectedOutput is null) SelectedOutput = OutputDevices.FirstOrDefault();
-            DeviceMessage = (InputDevices.Count, OutputDevices.Count) switch
-            {
-                (0, 0) => "No audio devices found: connect the measurement microphone and the output device, then refresh.",
-                (0, _) => $"No input devices found ({OutputDevices.Count} output(s)): the measurement microphone is missing.",
-                (_, 0) => $"No output devices found ({InputDevices.Count} input(s)): the playback device is missing.",
-                _ => $"{InputDevices.Count} input(s), {OutputDevices.Count} output(s).",
-            };
+            DescribeDevices();
         }
         catch (Exception exception)
         {
@@ -325,7 +357,8 @@ public sealed class MeasurementFlowViewModel : ObservableObject
             OutputDevices = [];
             SelectedInput = null;
             SelectedOutput = null;
-            DeviceMessage = $"No device list available: {exception.Message}";
+            _devicesRead = true;
+            DeviceMessage = UiText.Format("Flow.DeviceListFailed", exception.Message);
         }
 
         RefreshCommands();
@@ -350,7 +383,7 @@ public sealed class MeasurementFlowViewModel : ObservableObject
         CountX = manifest.Grid.CountX;
         CountY = manifest.Grid.CountY;
         CountZ = manifest.Grid.CountZ;
-        Status = $"Project settings adopted from '{directory}': press Start / resume to continue its {manifest.Slots.Count} slots.";
+        Status = UiText.Format("Flow.Adopted", directory, manifest.Slots.Count);
         RaiseAll();
     }
 
@@ -359,7 +392,7 @@ public sealed class MeasurementFlowViewModel : ObservableObject
     {
         if (SelectedInput is not { } input || SelectedOutput is not { } output)
         {
-            Status = "Select an input (microphone) and an output (playback) device first.";
+            Status = UiText.Get("Flow.NeedDevices");
             return;
         }
 
@@ -375,7 +408,7 @@ public sealed class MeasurementFlowViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or IOException or UnauthorizedAccessException)
         {
-            Status = $"Could not open a session in '{ProjectDirectory}': {exception.Message}";
+            Status = UiText.Format("Flow.OpenFailed", ProjectDirectory, exception.Message);
             return;
         }
 
@@ -389,7 +422,7 @@ public sealed class MeasurementFlowViewModel : ObservableObject
             TimeSpan.FromSeconds(PostRollSeconds));
         _awaitingDecision = null;
         IsAborted = false;
-        Status = $"Session open in '{ProjectDirectory}': {ProgressText}.";
+        Status = UiText.Format("Flow.SessionOpen", ProjectDirectory, ProgressText);
         RefreshCommands();
         RaiseAll();
     }
@@ -402,7 +435,7 @@ public sealed class MeasurementFlowViewModel : ObservableObject
     {
         if (_session is null || _runner is null || CurrentSlot is not { } slot)
         {
-            Status = "Nothing to measure — start or resume a session first.";
+            Status = UiText.Get("Flow.NeedSession");
             return;
         }
 
@@ -429,12 +462,11 @@ public sealed class MeasurementFlowViewModel : ObservableObject
         }
         catch (AudioDeviceOpenException exception)
         {
-            Status = $"'{slot.Id}' was not measured: {exception.Message} ({exception.Kind}, device '{exception.DeviceName}'). "
-                + $"The point is still {slot.State}.";
+            Status = UiText.Format("Flow.NotMeasured", slot.Id, exception.Message, exception.Kind, exception.DeviceName, slot.State);
         }
         catch (Exception exception)
         {
-            Status = $"'{slot.Id}' failed: {exception.GetType().Name}: {exception.Message}";
+            Status = UiText.Format("Flow.Failed", slot.Id, exception.GetType().Name, exception.Message);
         }
         finally
         {
@@ -454,7 +486,7 @@ public sealed class MeasurementFlowViewModel : ObservableObject
         string where = PositionText;
         _session.MarkSkipped(slot);
         _awaitingDecision = null;
-        Status = $"Skipped grid position {where} ({slot.Id}). Now: {ProgressText}.";
+        Status = UiText.Format("Flow.Skipped", where, slot.Id, ProgressText);
         RefreshCommands();
         RaiseAll();
     }
@@ -477,12 +509,12 @@ public sealed class MeasurementFlowViewModel : ObservableObject
         // Invalid/AbortedInFlight with its data kept, and aborting with nothing in flight changes no state at all.
         IsAborted = true;
         string recorded = _awaitingDecision is { } awaiting
-            ? $"grid position {PositionText} keeps its recorded {awaiting.State} verdict ({Reasons(awaiting)})"
+            ? UiText.Format("Flow.AbortKeep", PositionText, awaiting.State, Reasons(awaiting))
             : CurrentSlot is { } slot
-                ? $"grid position {PositionText} is still {slot.State}, because no measurement was kept for it"
-                : "every slot already holds a verdict";
+                ? UiText.Format("Flow.AbortStill", PositionText, slot.State)
+                : UiText.Get("Flow.AbortDone");
         _awaitingDecision = null;
-        Status = $"Run aborted — {recorded}. Nothing was advanced.";
+        Status = UiText.Format("Flow.AbortStatus", recorded);
         RefreshCommands();
         RaiseAll();
     }
@@ -505,20 +537,19 @@ public sealed class MeasurementFlowViewModel : ObservableObject
                 outcome.Measurement.PeakMagnitude,
                 slot.Capture);
             _awaitingDecision = slot;
-            Status = $"Run aborted — the capture for '{slot.Id}' at grid position {PositionText} was kept but is "
-                + "recorded Invalid (aborted by you), so it is not measured: re-measure or skip it.";
+            Status = UiText.Format("Flow.AbortKept", slot.Id, PositionText);
             return;
         }
 
         if (slot.State == MeasurementSlotState.Invalid)
         {
             _awaitingDecision = slot;
-            Status = $"Grid position {PositionText} ({slot.Id}) measured and rejected: {Reasons(slot)}.";
+            Status = UiText.Format("Flow.RejectedStatus", PositionText, slot.Id, Reasons(slot));
         }
         else
         {
             _awaitingDecision = null;
-            Status = $"{slot.Id} recorded as {slot.State}. {ProgressText}.";
+            Status = UiText.Format("Flow.Recorded", slot.Id, slot.State, ProgressText);
         }
     }
 
@@ -532,7 +563,7 @@ public sealed class MeasurementFlowViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
-            problem = $"Sweep settings are not usable: {exception.Message}";
+            problem = UiText.Format("Flow.SweepBad", exception.Message);
             return false;
         }
 
@@ -542,13 +573,13 @@ public sealed class MeasurementFlowViewModel : ObservableObject
         }
         catch (Exception exception) when (exception is ArgumentException or ArgumentOutOfRangeException)
         {
-            problem = $"Grid dimensions are not usable: {exception.Message}";
+            problem = UiText.Format("Flow.GridBad", exception.Message);
             return false;
         }
 
         if (string.IsNullOrWhiteSpace(ProjectDirectory))
         {
-            problem = "Type the project directory first: a defaulted path is how a session's WAVs end up in the repository.";
+            problem = UiText.Get("Flow.NeedFolder");
             return false;
         }
 
@@ -560,7 +591,7 @@ public sealed class MeasurementFlowViewModel : ObservableObject
         => slot.State is MeasurementSlotState.Pending or MeasurementSlotState.Invalid;
 
     private static string Reasons(MeasurementSlot slot)
-        => slot.Reasons.Count == 0 ? "(no reasons recorded)" : string.Join(", ", slot.Reasons);
+        => slot.Reasons.Count == 0 ? UiText.Get("Flow.NoReasons") : string.Join(", ", slot.Reasons);
 
     private void SetPlan<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
@@ -568,6 +599,8 @@ public sealed class MeasurementFlowViewModel : ObservableObject
         {
             Raise(nameof(SweepText));
             Raise(nameof(GridText));
+            Raise(nameof(SweepLine));
+            Raise(nameof(GridLine));
         }
     }
 

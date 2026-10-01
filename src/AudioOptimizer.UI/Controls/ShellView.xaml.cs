@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using AudioOptimizer.Audio;
+using AudioOptimizer.UI.Localization;
 using AudioOptimizer.UI.ViewModels;
 using AudioOptimizer.Visualization;
 
@@ -206,6 +207,10 @@ public partial class ShellView : UserControl
 
         chart.Show(plot, Analysis.ShowAllPositions);
     }
+
+    private void OnChineseClick(object sender, RoutedEventArgs e) => UiText.Use("zh");
+
+    private void OnEnglishClick(object sender, RoutedEventArgs e) => UiText.Use("en");
 
     private void OnLoadClick(object sender, RoutedEventArgs e)
     {

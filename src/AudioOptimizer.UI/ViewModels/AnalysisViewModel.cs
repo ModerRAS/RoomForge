@@ -1,6 +1,7 @@
 namespace AudioOptimizer.UI.ViewModels;
 
 using AudioOptimizer.Core;
+using AudioOptimizer.UI.Localization;
 using AudioOptimizer.Measurement;
 using AudioOptimizer.Optimization;
 using AudioOptimizer.Visualization;
@@ -26,7 +27,7 @@ public sealed class AnalysisViewModel : ObservableObject
     private bool _modeChosen;
     private bool _showAllPositions;
     private bool _interpolated;
-    private string _message = "Start or resume a session to analyse measured points.";
+    private string _message = UiText.Get("Analysis.None");
     private int _positionCount;
     private CurvePlot? _levelsPlot;
     private CurvePlot? _stdDevPlot;
@@ -77,7 +78,9 @@ public sealed class AnalysisViewModel : ObservableObject
     }
 
     /// <summary>The wording that must accompany every level number in this panel.</summary>
-    public string LevelAxisLabel => CurveReference.AxisLabel;
+    public string LevelAxisLabel => UiText.IsChinese
+        ? "相对平均响度的差别（dB）"
+        : CurveReference.AxisLabel;
 
     public CurvePlot? LevelsPlot
     {
@@ -125,7 +128,7 @@ public sealed class AnalysisViewModel : ObservableObject
         {
             PositionCount = 0;
             LevelsPlot = StdDevPlot = RangePlot = OverlayPlot = null;
-            Message = "Start or resume a session to analyse measured points.";
+            Message = UiText.Get("Analysis.None");
             return;
         }
 
@@ -134,15 +137,15 @@ public sealed class AnalysisViewModel : ObservableObject
         if (positions.Count == 0)
         {
             LevelsPlot = StdDevPlot = RangePlot = OverlayPlot = null;
-            Message = $"No measured points in mode {_mode} yet — measure a point, or pick another configuration.";
+            Message = UiText.Format("Analysis.EmptyMode", _mode);
             return;
         }
 
         SpatialSummary spread = SpatialMetrics.Compute(positions);
         SpatialLevels levels = Summary(spread, positions);
-        LevelsPlot = Figure(ResponseCurves.Spatial(levels, PositionLevels(positions), CurveReference, $"Measured levels, mode {_mode}"));
-        StdDevPlot = Figure(ResponseCurves.Spread(levels, CurveRole.StdDev, "Spread across positions"));
-        RangePlot = Figure(ResponseCurves.Spread(levels, CurveRole.Range, "Max − min across positions"));
+        LevelsPlot = Figure(ResponseCurves.Spatial(levels, PositionLevels(positions), CurveReference, UiText.Format("Analysis.LevelsTitle", _mode)));
+        StdDevPlot = Figure(ResponseCurves.Spread(levels, CurveRole.StdDev, UiText.Get("Analysis.SpreadTitle")));
+        RangePlot = Figure(ResponseCurves.Spread(levels, CurveRole.Range, UiText.Get("Analysis.RangeTitle")));
 
         IReadOnlyList<PositionResponse> a = Measured(session, SubMode.A);
         IReadOnlyList<PositionResponse> b = Measured(session, SubMode.B);
@@ -154,8 +157,8 @@ public sealed class AnalysisViewModel : ObservableObject
                 Summary(SpatialMetrics.Compute(pairedA), pairedA),
                 Summary(SpatialMetrics.Compute(predicted), predicted),
                 CurveReference,
-                "predicted, gain 0.0 dB, polarity +1, delay 0.00 ms",
-                "Before / after"));
+                UiText.Get("Analysis.Predicted"),
+                UiText.Get("Analysis.OverlayTitle")));
         }
         else
         {
@@ -163,11 +166,15 @@ public sealed class AnalysisViewModel : ObservableObject
         }
 
         string overlayNote = OverlayPlot is null
-            ? " The overlay needs both A and B measured on the same positions."
-            : $" The overlay compares measured A with the model's A+B at the identity setting ({pairedA.Count} position(s)).";
-        Message = $"{positions.Count} measured position(s), mode {_mode}: "
-            + $"mean ±1σ by default, worst σ {spread.PerFrequency.Max(metrics => metrics.StdDevDb):F2} dB, "
-            + $"worst max − min {spread.PerFrequency.Max(metrics => metrics.RangeDb):F2} dB.{overlayNote}";
+            ? UiText.Get("Analysis.NeedBoth")
+            : UiText.Format("Analysis.OverlayNote", pairedA.Count);
+        Message = UiText.Format(
+            "Analysis.Summary",
+            positions.Count,
+            _mode,
+            spread.PerFrequency.Max(metrics => metrics.StdDevDb),
+            spread.PerFrequency.Max(metrics => metrics.RangeDb),
+            overlayNote);
     }
 
     private CurvePlot Figure(CurvePlot plot) => _interpolated ? ResponseCurves.Interpolated(plot) : plot;
