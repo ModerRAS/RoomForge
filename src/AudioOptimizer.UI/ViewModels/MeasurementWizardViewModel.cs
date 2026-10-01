@@ -3,6 +3,7 @@ namespace AudioOptimizer.UI.ViewModels;
 using System.Globalization;
 using AudioOptimizer.Core;
 using AudioOptimizer.Measurement;
+using AudioOptimizer.UI.Localization;
 
 /// <summary>
 /// One presented step of §24's twelve. Every field is DERIVED on read — the wizard stores no step state, so a
@@ -14,7 +15,7 @@ public sealed record WizardStep(int Number, string Title, string Detail, string 
     public string Heading => $"{Number}. {Title}";
 
     /// <summary>The state as text: a row says what it is, and a bitmap or tree assertion can look for it.</summary>
-    public string StateText => IsDone ? "done" : IsCurrent ? "next" : "upcoming";
+    public string StateText => IsDone ? UiText.Get("Wizard.Done") : IsCurrent ? UiText.Get("Wizard.Next") : UiText.Get("Wizard.Upcoming");
 }
 
 /// <summary>
@@ -57,56 +58,57 @@ public sealed class MeasurementWizardViewModel : ObservableObject
             (bool Done, string Title, string Detail, string Cue)[] rows =
             [
                 (_flow.SelectedInput is not null,
-                    "Input device",
-                    _flow.SelectedInput is { } input ? $"selected: {input.Name}" : "none selected",
-                    "Press Refresh devices on the Measure tab, then pick the measurement microphone."),
+                    UiText.Get("Wizard.Input"),
+                    _flow.SelectedInput is { } input ? UiText.Format("Wizard.InputDetail", input.Name) : UiText.Get("Wizard.NoneSelected"),
+                    UiText.Get("Wizard.InputCue")),
                 (_flow.SelectedOutput is not null,
-                    "Output device",
-                    _flow.SelectedOutput is { } output ? $"selected: {output.Name}" : "none selected",
-                    "Pick the playback device the subwoofers are driven from."),
+                    UiText.Get("Wizard.Output"),
+                    _flow.SelectedOutput is { } output ? UiText.Format("Wizard.InputDetail", output.Name) : UiText.Get("Wizard.NoneSelected"),
+                    UiText.Get("Wizard.OutputCue")),
                 (_flow.SampleRate > 0,
-                    "Sample rate",
+                    UiText.Get("Wizard.Rate"),
                     string.Create(CultureInfo.InvariantCulture, $"{_flow.SampleRate} Hz"),
-                    "Set it on the Measure tab; it has to match the rate the devices are running at."),
+                    UiText.Get("Wizard.RateCue")),
                 (IsUsable(_flow.Sweep),
-                    "Sweep settings",
+                    UiText.Get("Wizard.Sweep"),
                     _flow.SweepText,
-                    "20-150 Hz for 1 s is the default, not a constant: the band is a setting the wizard can set."),
+                    UiText.Get("Wizard.SweepCue")),
                 (areaUsable,
-                    "Measurement area",
-                    string.Create(CultureInfo.InvariantCulture,
-                        $"{_flow.WidthMetres:0.##} x {_flow.DepthMetres:0.##} x {_flow.HeightMetres:0.##} m"),
-                    "The room the grid covers, in metres."),
+                    UiText.Get("Wizard.Area"),
+                    UiText.IsChinese
+                        ? string.Create(CultureInfo.InvariantCulture, $"{_flow.WidthMetres:0.##} × {_flow.DepthMetres:0.##} × {_flow.HeightMetres:0.##} 米")
+                        : string.Create(CultureInfo.InvariantCulture, $"{_flow.WidthMetres:0.##} x {_flow.DepthMetres:0.##} x {_flow.HeightMetres:0.##} m"),
+                    UiText.Get("Wizard.AreaCue")),
                 (session is not null,
-                    "Generate points",
+                    UiText.Get("Wizard.Points"),
                     _flow.GridText,
-                    "Press Start / resume session: one slot is created per grid point per mode."),
+                    UiText.Get("Wizard.PointsCue")),
                 (IsModeComplete(session, SubMode.A),
-                    "Sub A",
+                    UiText.Get("Wizard.SubA"),
                     ModeDetail(session, SubMode.A),
-                    "Measure each point with Space or Enter; the cursor walks A, then B, then A+B."),
+                    UiText.Get("Wizard.SubACue")),
                 (IsModeComplete(session, SubMode.B),
-                    "Sub B",
+                    UiText.Get("Wizard.SubB"),
                     ModeDetail(session, SubMode.B),
-                    "The same positions, sub B only."),
+                    UiText.Get("Wizard.SubBCue")),
                 (IsModeComplete(session, SubMode.AB),
-                    "Sub A+B",
+                    UiText.Get("Wizard.SubAb"),
                     ModeDetail(session, SubMode.AB),
-                    "Both subs together — the pass the optimisation is checked against."),
+                    UiText.Get("Wizard.SubAbCue")),
                 (_flow.MeasuredCount > 0,
-                    "Analysis",
+                    UiText.Get("Wizard.Analysis"),
                     _flow.MeasuredText,
-                    "The Analysis tab draws the level, spread and overlay figures from the measured slots."),
+                    UiText.Get("Wizard.AnalysisCue")),
                 (paired > 0,
-                    "Optimize",
+                    UiText.Get("Wizard.Optimize"),
                     paired == 0
-                        ? "no point has both A and B measured yet"
-                        : $"{paired} of {session!.Grid.PointCount} points have A and B measured",
-                    "Press Run search on the Optimize tab."),
+                        ? UiText.Get("Wizard.NoPair")
+                        : UiText.Format("Wizard.Paired", paired, session!.Grid.PointCount),
+                    UiText.Get("Wizard.OptimizeCue")),
                 (_optimizer.Result is not null,
-                    "Results",
-                    _optimizer.Result is null ? "no optimisation run yet" : _optimizer.RecommendationText,
-                    "The recommendation, its binding constraint and the structured causes are on the Optimize tab."),
+                    UiText.Get("Wizard.Results"),
+                    _optimizer.Result is null ? UiText.Get("Wizard.NoResult") : _optimizer.RecommendationText,
+                    UiText.Get("Wizard.ResultsCue")),
             ];
 
             int current = 0;
@@ -124,8 +126,8 @@ public sealed class MeasurementWizardViewModel : ObservableObject
         {
             IReadOnlyList<WizardStep> steps = Steps;
             return steps.FirstOrDefault(step => step.IsCurrent) is { } current
-                ? $"Step {current.Number} of {steps.Count}: {current.Title} — {current.Cue}"
-                : $"All {steps.Count} steps are done: the project has a measured grid and an optimisation result.";
+                ? UiText.Format("Wizard.Guide", current.Number, steps.Count, current.Title, current.Cue)
+                : UiText.Format("Wizard.GuideDone", steps.Count);
         }
     }
 
@@ -166,9 +168,11 @@ public sealed class MeasurementWizardViewModel : ObservableObject
     /// <summary>"12 of 27 measured", with the skips named separately when there are any.</summary>
     private static string ModeDetail(MeasurementSession? session, SubMode mode)
     {
-        if (session is not { } open) return "no session yet";
+        if (session is not { } open) return UiText.Get("Wizard.NoSession");
         (int total, int done, int skipped) = ModeCounts(open, mode);
-        return skipped == 0 ? $"{done} of {total} measured" : $"{done} of {total} measured, {skipped} skipped";
+        return skipped == 0
+            ? UiText.Format("Wizard.ModeDetail", done, total)
+            : UiText.Format("Wizard.ModeSkipped", done, total, skipped);
     }
 
     private static (int Total, int Done, int Skipped) ModeCounts(MeasurementSession session, SubMode mode)

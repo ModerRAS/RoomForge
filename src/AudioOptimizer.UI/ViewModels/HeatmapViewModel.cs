@@ -1,6 +1,7 @@
 namespace AudioOptimizer.UI.ViewModels;
 
 using AudioOptimizer.Core;
+using AudioOptimizer.UI.Localization;
 using AudioOptimizer.Measurement;
 using AudioOptimizer.Visualization;
 
@@ -30,7 +31,7 @@ public sealed class HeatmapViewModel : ObservableObject
     private IReadOnlyList<double> _requests = [];
     private double _requestedHz;
     private bool _interpolated;
-    private string _message = "Start or resume a session to map measured levels.";
+    private string _message = UiText.Get("Heat.None");
     private string _frequencyText = string.Empty;
     private IReadOnlyList<Heatmap> _planes = [];
     private Heatmap? _positionMap;
@@ -114,7 +115,7 @@ public sealed class HeatmapViewModel : ObservableObject
         MeasurementSession? session = _flow?.Session;
         if (session is null)
         {
-            Reset("Start or resume a session to map measured levels.");
+            Reset(UiText.Get("Heat.None"));
             return;
         }
 
@@ -122,7 +123,7 @@ public sealed class HeatmapViewModel : ObservableObject
         IReadOnlyList<MeasurementSlot> measured = [.. session.Slots.Where(slot => slot.State == MeasurementSlotState.Done && session.InBandResponseOf(slot) is { Length: > 0 })];
         if (measured.Count == 0)
         {
-            Reset("No measured points yet — measure a point, then map its level.");
+            Reset(UiText.Get("Heat.NoPoints"));
             return;
         }
 
@@ -134,8 +135,9 @@ public sealed class HeatmapViewModel : ObservableObject
         Raise(nameof(Frequencies));
 
         (int _, double achieved) = BinSnap.Snap(_binFrequencies, _requestedHz);
-        FrequencyText = $"requested {_requestedHz:F1} Hz → analysis bin {achieved:F4} Hz"
-            + (Math.Abs(achieved - _requestedHz) < 1e-9 ? " (exact)" : $" (nearest of {_binFrequencies.Length} bins)");
+        FrequencyText = Math.Abs(achieved - _requestedHz) < 1e-9
+            ? UiText.Format("Heat.FreqExact", _requestedHz, achieved)
+            : UiText.Format("Heat.FreqNear", _requestedHz, achieved, _binFrequencies.Length);
 
         // Groups are the grid's heights: one plane per Z, in Z order, whatever CountZ is.
         var byHeight = measured
@@ -159,9 +161,9 @@ public sealed class HeatmapViewModel : ObservableObject
         {
             double z = byHeight[index].First().Point.Z;
             Heatmap plane = Heatmaps.Matrix(
-                $"Measured level at height Z {z:F2} m, {achieved:F2} Hz",
-                "width (m)",
-                "depth (m)",
+                UiText.Format("Heat.Plane", z, achieved),
+                UiText.Get("Heat.Width"),
+                UiText.Get("Heat.Depth"),
                 planeRows[index],
                 _colourReference,
                 context);
@@ -173,17 +175,24 @@ public sealed class HeatmapViewModel : ObservableObject
         foreach (MeasurementSlot slot in measured.OrderBy(slot => slot.Point.GridZ).ThenBy(slot => slot.Point.Id, StringComparer.Ordinal))
             positionRows.Add([.. session.InBandResponseOf(slot)!.Select(bin => bin.MagnitudeDb)]);
         Heatmap map = Heatmaps.Matrix(
-            "Level by frequency and position",
-            "frequency (Hz)",
-            "position (measured point)",
+            UiText.Get("Heat.MapTitle"),
+            UiText.Get("Heat.FreqAxis"),
+            UiText.Get("Heat.PosAxis"),
             positionRows,
             _colourReference,
             Heatmaps.SharedContext(positionRows.SelectMany(row => row)));
         PositionMap = _interpolated ? Heatmaps.Interpolated(map) : map;
 
         Planes = planes;
-        Message = $"{measured.Count} measured point(s) over {grid.CountZ} height(s); requested band {session.Band}, "
-            + $"{_binFrequencies.Length} bins {_binFrequencies[0]:F4}–{_binFrequencies[^1]:F4} Hz; scale {_colourReference.AxisLabel}.";
+        Message = UiText.Format(
+            "Heat.Summary",
+            measured.Count,
+            grid.CountZ,
+            session.Band,
+            _binFrequencies.Length,
+            _binFrequencies[0],
+            _binFrequencies[^1],
+            _colourReference.AxisLabel);
     }
 
     /// <summary>One height's rows, laid out on the grid's own index axes so the plane matches the room.</summary>

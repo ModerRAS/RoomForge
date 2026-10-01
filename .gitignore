@@ -434,3 +434,6 @@ FodyWeavers.xsd
 
 # Measurement captures (belt-and-braces; the harness defaults to the temp dir, not the tree)
 smoketest-*.wav
+
+# Local requirement drafts. They stay on disk and are not part of the product.
+specs/

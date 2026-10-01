@@ -2,6 +2,7 @@ namespace AudioOptimizer.UI.ViewModels;
 
 using System.IO;                  // WPF's implicit-using set does not include System.IO
 using AudioOptimizer.IO;
+using AudioOptimizer.UI.Localization;
 
 /// <summary>
 /// The project-loading view-model. It talks to <see cref="SessionStore"/> and to the file system and to nothing
@@ -17,7 +18,7 @@ public sealed class ProjectLoadViewModel : ObservableObject
 {
     private string _projectDirectory = string.Empty;
     private ProjectLoadProblem _problem = ProjectLoadProblem.ManifestMissing;
-    private string _message = "No project loaded.";
+    private string _message = UiText.Get("Project.None");
     private bool _isLoaded;
     private string _projectId = "—";
     private string _schema = "—";
@@ -76,6 +77,14 @@ public sealed class ProjectLoadViewModel : ObservableObject
         private set => Set(ref _grid, value);
     }
 
+    public string SchemaLine => UiText.Format("Project.Schema", Schema);
+
+    public string SweepLine => UiText.Format("Project.Sweep", Sweep);
+
+    public string GridLine => UiText.Format("Project.Grid", Grid);
+
+    public string IdLine => UiText.Format("Project.Id", ProjectId);
+
     public IReadOnlyList<ProjectSlotViewModel> Slots
     {
         get => _slots;
@@ -91,7 +100,11 @@ public sealed class ProjectLoadViewModel : ObservableObject
         get => _affectedPaths;
         private set
         {
-            if (Set(ref _affectedPaths, value)) Raise(nameof(AffectedPathSummary));
+            if (Set(ref _affectedPaths, value))
+            {
+                Raise(nameof(AffectedPathSummary));
+                Raise(nameof(ShowAffected));
+            }
         }
     }
 
@@ -119,12 +132,38 @@ public sealed class ProjectLoadViewModel : ObservableObject
     public int MissingSignalCount => Slots.Count(slot => slot.IsMissingSignalFile);
 
     public string StatusLine => IsLoaded
-        ? $"{SlotCount} slots: {DoneCount} done, {InvalidCount} invalid, {SkippedCount} skipped, {PendingCount} pending"
-        : $"not loaded ({Problem})";
+        ? UiText.Format("Project.StatusLine", SlotCount, DoneCount, InvalidCount, SkippedCount, PendingCount)
+        : string.IsNullOrWhiteSpace(ProjectDirectory)
+            ? UiText.Get("Project.PickFirst")
+            : Problem is ProjectLoadProblem.ManifestMissing or ProjectLoadProblem.DirectoryMissing
+                ? UiText.Get("Project.ReadyToStart")
+                : UiText.Format("Project.NotLoaded", ProblemText);
+
+    private string ProblemText => !UiText.IsChinese
+        ? Problem.ToString()
+        : Problem switch
+        {
+            ProjectLoadProblem.DirectoryMissing => "文件夹不存在",
+            ProjectLoadProblem.ManifestUnreadable => "项目文件读不出来",
+            ProjectLoadProblem.SchemaVersionUnsupported => "项目文件是更新的版本，这一版读不了",
+            ProjectLoadProblem.SignalFileMissing => "有录音或脉冲文件不见了",
+            ProjectLoadProblem.SignalFileUnreadable => "有录音文件打不开",
+            ProjectLoadProblem.CalibrationNotReproducible => "里面的校准信息重建不了",
+            _ => Problem.ToString(),
+        };
+
+    public bool ShowAffected => AffectedPaths.Count > 0
+        && Problem is not (ProjectLoadProblem.ManifestMissing or ProjectLoadProblem.DirectoryMissing);
 
     public string AffectedPathSummary => AffectedPaths.Count == 0
-        ? "no missing or unreadable files"
-        : $"{AffectedPaths.Count} file(s) affected: {string.Join(", ", AffectedPaths.Select(Path.GetFileName))}";
+        ? UiText.Get("Project.NoMissing")
+        : UiText.Format("Project.Affected", AffectedPaths.Count, string.Join(", ", AffectedPaths.Select(Path.GetFileName)));
+
+    protected override void OnCultureChanged()
+    {
+        if (!IsLoaded && Problem == ProjectLoadProblem.ManifestMissing && Slots.Count == 0)
+            _message = UiText.Get("Project.None");
+    }
 
     /// <summary>
     /// Loads <see cref="ProjectDirectory"/>. Never throws for a bad project — a missing or corrupt file is a
@@ -137,7 +176,9 @@ public sealed class ProjectLoadViewModel : ObservableObject
         if (result.Manifest is not { } manifest)
         {
             Problem = result.Problem;
-            Message = result.Message;
+            Message = result.Problem is ProjectLoadProblem.ManifestMissing or ProjectLoadProblem.DirectoryMissing
+                ? string.Empty
+                : result.Message;
             IsLoaded = false;
             LoadedManifest = null;
             Slots = [];
@@ -166,7 +207,7 @@ public sealed class ProjectLoadViewModel : ObservableObject
         }
 
         Problem = result.Problem;
-        Message = result.Message;
+        Message = UiText.Format("Project.Opened", ProjectDirectory);
         IsLoaded = true;
         LoadedManifest = manifest;
         ProjectId = string.IsNullOrEmpty(manifest.ProjectId) ? "(v1 project: no id)" : manifest.ProjectId;

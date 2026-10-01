@@ -2,6 +2,7 @@ namespace AudioOptimizer.UI.ViewModels;
 
 using System.Globalization;
 using AudioOptimizer.Core;
+using AudioOptimizer.UI.Localization;
 using AudioOptimizer.Measurement;
 using AudioOptimizer.Optimization;
 using AudioOptimizer.Simulation;
@@ -41,10 +42,10 @@ public sealed class SimulationPanelViewModel : ObservableObject
     private double _noiseLevel = SimulationScenarios.SingleSub.Config.MicrophoneNoiseLevel;
     private double _heatmapFrequencyHz = 50.0;
     private bool _isBusy;
-    private string _status = "Pick a scenario and press Generate simulation. Nothing is measured and no audio device is opened.";
+    private string _status = UiText.Get("Sim.Idle");
     private string _pipelineText = string.Empty;
     private string _statsText = string.Empty;
-    private string _optimizerText = "No search has run.";
+    private string _optimizerText = UiText.Get("Sim.NoSearch");
     private string _groundTruthText = string.Empty;
     private IReadOnlyList<CurvePlot> _plots = [];
     private IReadOnlyList<Heatmap> _planes = [];
@@ -189,7 +190,7 @@ public sealed class SimulationPanelViewModel : ObservableObject
     {
         if (IsBusy) return;
         IsBusy = true;
-        Status = "Simulating…";
+        Status = UiText.Get("Sim.Running");
         try
         {
             SimulationScenario scenario = Configured();
@@ -198,10 +199,10 @@ public sealed class SimulationPanelViewModel : ObservableObject
         }
         catch (Exception exception)
         {
-            Status = $"Simulation failed: {exception.Message}";
+            Status = UiText.Format("Sim.Failed", exception.Message);
             PipelineText = string.Empty;
             StatsText = string.Empty;
-            OptimizerText = "No search has run.";
+            OptimizerText = UiText.Get("Sim.NoSearch");
             GroundTruthText = string.Empty;
             Plots = [];
             Planes = [];
@@ -215,15 +216,17 @@ public sealed class SimulationPanelViewModel : ObservableObject
     private void Apply(SimulationOutcome outcome)
     {
         SimulationMeasurementSummary summary = outcome.MeasuredSummary;
-        PipelineText = $"{summary.Count} points measured through the shipped chain — "
-            + string.Join(", ", summary.Verdicts.Select(verdict => $"{verdict.Mode}: {verdict.Verdict}"));
+        PipelineText = UiText.Format(
+            "Sim.Pipeline",
+            summary.Count,
+            string.Join(", ", summary.Verdicts.Select(verdict => $"{verdict.Mode}: {verdict.Verdict}")));
         StatsText = Describe(BandSpatialStats.Of(outcome.Measured));
         OptimizerText = DescribeOptimizer(outcome.Optimization);
         GroundTruthText = DescribeGroundTruth(outcome);
         Plots = Curves(outcome);
         Planes = PlanesAt(outcome, HeatmapFrequencyHz);
-        Status = $"Done: {summary.Count} measurements, {outcome.Measured.PerFrequency.Count} bins inside {outcome.Measured.AnalysisBand}."
-            + (outcome.Optimization is { } result ? $" Search verdict: {result.Verdict}." : string.Empty);
+        Status = UiText.Format("Sim.Done", summary.Count, outcome.Measured.PerFrequency.Count, outcome.Measured.AnalysisBand)
+            + (outcome.Optimization is { } result ? UiText.Format("Sim.Verdict", result.Verdict) : string.Empty);
     }
 
     private void LoadScenario(SimulationScenario scenario)
@@ -244,7 +247,8 @@ public sealed class SimulationPanelViewModel : ObservableObject
         if (scenario.Subs.Count > 0) (SubAX, SubAY, SubAZ) = (scenario.Subs[0].Position.X, scenario.Subs[0].Position.Y, scenario.Subs[0].Position.Z);
         if (scenario.Subs.Count > 1) (SubBX, SubBY, SubBZ) = (scenario.Subs[1].Position.X, scenario.Subs[1].Position.Y, scenario.Subs[1].Position.Z);
 
-        Status = $"{scenario.Id}: {scenario.Description}";
+        string named = UiText.Get("Sim." + scenario.Id);
+        Status = named.StartsWith("Sim.", StringComparison.Ordinal) ? $"{scenario.Id}: {scenario.Description}" : named;
     }
 
     /// <summary>
@@ -254,20 +258,35 @@ public sealed class SimulationPanelViewModel : ObservableObject
     public static string Describe(BandSpatialStats stats)
     {
         ArgumentNullException.ThrowIfNull(stats);
-        return $"mean {F(stats.MeanDb)} dB, median {F(stats.MedianDb)} dB, σ {F(stats.StdDevDb)} dB, "
-            + $"min {F(stats.MinDb)} dB, max {F(stats.MaxDb)} dB, range {F(stats.RangeDb)} dB, "
-            + $"P10 {F(stats.P10Db)} dB, P90 {F(stats.P90Db)} dB, P90−P10 {F(stats.P90P10Db)} dB";
+        return UiText.IsChinese
+            ? $"平均 {F(stats.MeanDb)} dB，中位 {F(stats.MedianDb)} dB，标准差 {F(stats.StdDevDb)} dB，"
+                + $"最小 {F(stats.MinDb)} dB，最大 {F(stats.MaxDb)} dB，极差 {F(stats.RangeDb)} dB，"
+                + $"P10 {F(stats.P10Db)} dB，P90 {F(stats.P90Db)} dB，P90 减 P10 {F(stats.P90P10Db)} dB"
+            : $"mean {F(stats.MeanDb)} dB, median {F(stats.MedianDb)} dB, σ {F(stats.StdDevDb)} dB, "
+                + $"min {F(stats.MinDb)} dB, max {F(stats.MaxDb)} dB, range {F(stats.RangeDb)} dB, "
+                + $"P10 {F(stats.P10Db)} dB, P90 {F(stats.P90Db)} dB, P90−P10 {F(stats.P90P10Db)} dB";
     }
 
     /// <summary>The optimizer's answer, in its own terms: verdict, recommendation, boost used against the limit.</summary>
     public static string DescribeOptimizer(OptimizerResult? result)
     {
-        if (result is null) return "No search has run.";
+        if (result is null) return UiText.Get("Sim.NoSearch");
 
         string recommendation = result.Recommended is { } setting
-            ? $"recommended {F(setting.GainDb)} dB, {F(setting.PhaseDegrees)}°, polarity {setting.Polarity:+#;-#;+1}, "
-                + $"{F(setting.DelaySeconds * 1000.0)} ms"
-            : "no setting within the limit";
+            ? UiText.IsChinese
+                ? $"增益 {F(setting.GainDb)} dB，相位 {F(setting.PhaseDegrees)}°，极性 {setting.Polarity.ToString("+#;-#;+1", CultureInfo.InvariantCulture)}，延迟 {F(setting.DelaySeconds * 1000.0)} 毫秒"
+                : $"recommended {F(setting.GainDb)} dB, {F(setting.PhaseDegrees)}°, polarity {setting.Polarity:+#;-#;+1}, "
+                    + $"{F(setting.DelaySeconds * 1000.0)} ms"
+            : UiText.IsChinese ? "没有不超限的设置" : "no setting within the limit";
+
+        if (UiText.IsChinese)
+        {
+            return $"{result.Verdict}。建议：{recommendation}。各位置的差异 {F(result.Before.MeanStdDevDb)} → {F(result.After.MeanStdDevDb)} dB；"
+                + $"提升用了 {F(result.Constraint.MaxAchievedBoostDb ?? 0.0)} dB，上限 {F(result.Constraint.MaxBoostLimitDb)} dB"
+                + (result.Constraint.Binding ? "（上限卡住了）" : "（上限没卡住）")
+                + $"；看了 {result.Constraint.CandidatesEvaluated} 个，丢掉 {result.Constraint.CandidatesRejected} 个"
+                + (result.Coverage is { } coverageZh ? $"；{coverageZh.WarningText}" : string.Empty);
+        }
 
         return $"{result.Verdict}; {recommendation}; spatial σ {F(result.Before.MeanStdDevDb)} → {F(result.After.MeanStdDevDb)} dB; "
             + $"boost {F(result.Constraint.MaxAchievedBoostDb ?? 0.0)} dB of {F(result.Constraint.MaxBoostLimitDb)} dB allowed"
@@ -282,15 +301,15 @@ public sealed class SimulationPanelViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(outcome);
         if (outcome.Scenario.GroundTruthSetting is not { } truth)
             return outcome.Optimization is null
-                ? "This scenario declares no known correction."
-                : "This scenario declares no known correction — the search's own before/after above is the whole answer.";
+                ? UiText.Get("Sim.NoTruth")
+                : UiText.Get("Sim.NoTruthSearch");
 
-        string known = $"{F(truth.GainDb)} dB, {F(truth.PhaseDegrees)}°, polarity {truth.Polarity:+#;-#;+1}, "
+        string known = $"{F(truth.GainDb)} dB, {F(truth.PhaseDegrees)}°, polarity {truth.Polarity.ToString("+#;-#;+1", CultureInfo.InvariantCulture)}, "
             + $"{F(truth.DelaySeconds * 1000.0)} ms";
         string achieved = outcome.GroundTruthReference is { } reference
-            ? $" It reaches {Describe(BandSpatialStats.Of(reference))}."
+            ? UiText.Format("Sim.Reaches", Describe(BandSpatialStats.Of(reference)))
             : string.Empty;
-        return $"known correction {known}; the optimizer never saw it.{achieved}";
+        return UiText.Format("Sim.Known", known, achieved);
     }
 
     /// <summary>
@@ -317,8 +336,10 @@ public sealed class SimulationPanelViewModel : ObservableObject
 
             IReadOnlyList<PositionLevels> perPosition =
                 [.. positions.Select(position => new PositionLevels(position.PointId, [.. position.Bins.Select(bin => bin.MagnitudeDb)]))];
-            plots.Add(ResponseCurves.Spatial(levels, perPosition, Reference,
-                $"{outcome.Scenario.Id} — {mode}, {positions.Count} position(s)"));
+            string title = UiText.IsChinese
+                ? $"{outcome.Scenario.Id}，{mode}，{positions.Count} 个位置"
+                : $"{outcome.Scenario.Id} — {mode}, {positions.Count} position(s)";
+            plots.Add(ResponseCurves.Spatial(levels, perPosition, Reference, title));
         }
 
         return plots;
@@ -361,9 +382,11 @@ public sealed class SimulationPanelViewModel : ObservableObject
 
             if (rows.Count != 3) continue;                       // a plane that is not a full 3 × 3 is not a plane
             planes.Add(Heatmaps.Matrix(
-                $"{mode} at {frequencyHz:0.#} Hz, height level z{z}",
-                "x (25/50/75 %)",
-                "y (25/50/75 %)",
+                UiText.IsChinese
+                    ? $"{mode}，{frequencyHz.ToString("0.#", CultureInfo.InvariantCulture)} Hz，高度第 {z} 层"
+                    : $"{mode} at {frequencyHz:0.#} Hz, height level z{z}",
+                UiText.IsChinese ? "左右（25/50/75%）" : "x (25/50/75 %)",
+                UiText.IsChinese ? "前后（25/50/75%）" : "y (25/50/75 %)",
                 rows,
                 Reference,
                 context));
